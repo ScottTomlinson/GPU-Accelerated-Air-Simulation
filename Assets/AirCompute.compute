@@ -70,19 +70,22 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
             for (int z = -1; z <= 1; z++)
             {
                 //neighbor pos = this pos + index clamped to within overall boundaries
-                int _x = clamp(id.x + x, 0, width - 1);
-                int _y = clamp(id.y + y, 0, height - 1);
-                int _z = clamp(id.z + z, 0, depth - 1);
+                int xpos = id.x + x;
+                int ypos = id.y + y;
+                int zpos = id.z + z;
+
+                int _x = clamp(xpos, 0, 99);
+                int _y = clamp(ypos, 0, 99);
+                int _z = clamp(zpos, 0, 99);
                 //set the index data
-                indexes[i] = _x + (width * _y) + (_z * depth * width);
+                indexes[i] = _x + (width * _z) + (_y * depth * width);
                 //iterate the i
                 i++;
             }
         }
     }
     //find the total of all neighbors and self
-    float totalValues = 0;
-    totalValues = airBuffer[indexes[0]] + airBuffer[indexes[1]] + airBuffer[indexes[2]] + airBuffer[indexes[3]] + 
+    float totalValues = airBuffer[indexes[0]] + airBuffer[indexes[1]] + airBuffer[indexes[2]] + airBuffer[indexes[3]] + 
         airBuffer[indexes[4]] + airBuffer[indexes[5]] + airBuffer[indexes[6]] + airBuffer[indexes[7]] + airBuffer[indexes[8]] + 
         airBuffer[indexes[9]] + airBuffer[indexes[10]] + airBuffer[indexes[11]] + airBuffer[indexes[12]] + airBuffer[indexes[13]] + 
         airBuffer[indexes[14]] + airBuffer[indexes[15]] + airBuffer[indexes[16]] + airBuffer[indexes[17]] + airBuffer[indexes[18]] + 
@@ -91,7 +94,40 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
 
     //balance the total
     float balancedValue = totalValues / 27;
+    //float finalValue = clamp(balancedValue, 0, 100000000);
+    float finalValue = balancedValue;
     //set all neighbors and self to balanced value
+    /*
+    airBuffer[indexes[0]] = finalValue;
+    airBuffer[indexes[1]] = finalValue;
+    airBuffer[indexes[2]] = finalValue;
+    airBuffer[indexes[3]] = finalValue;
+    airBuffer[indexes[4]] = finalValue;
+    airBuffer[indexes[5]] = finalValue;
+    airBuffer[indexes[6]] = finalValue;
+    airBuffer[indexes[7]] = finalValue;
+    airBuffer[indexes[8]] = finalValue;
+    airBuffer[indexes[9]] = finalValue;
+    airBuffer[indexes[10]] = finalValue;
+    airBuffer[indexes[11]] = finalValue;
+    airBuffer[indexes[12]] = finalValue;
+    airBuffer[indexes[13]] = finalValue;
+    airBuffer[indexes[14]] = finalValue;
+    airBuffer[indexes[15]] = finalValue;
+    airBuffer[indexes[16]] = finalValue;
+    airBuffer[indexes[17]] = finalValue;
+    airBuffer[indexes[18]] = finalValue;
+    airBuffer[indexes[19]] = finalValue;
+    airBuffer[indexes[20]] = finalValue;
+    airBuffer[indexes[21]] = finalValue;
+    airBuffer[indexes[22]] = finalValue;
+    airBuffer[indexes[23]] = finalValue;
+    airBuffer[indexes[24]] = finalValue;
+    airBuffer[indexes[25]] = finalValue;
+    airBuffer[indexes[26]] = finalValue;
+    */
+
+
     airBuffer[indexes[0]] = balancedValue;
     airBuffer[indexes[1]] = balancedValue;
     airBuffer[indexes[2]] = balancedValue;

@@ -38,7 +38,7 @@ public class AirSimulation : MonoBehaviour {
     }
     
 	// Update is called once per frame
-	void Update ()
+	void FixedUpdate ()
     {
         RunAirSim();
 
@@ -46,6 +46,8 @@ public class AirSimulation : MonoBehaviour {
         if(updateCounter > getDataInterval)
         {
             airBuffer.GetData(outputData);
+            int randomIndex = (int)Random.Range(0f, (float)outputData.Length + 1f);
+            //outputData[randomIndex] = 20000000f;
             visualBuffer.SetData(outputData);
             //airBuffer.SetData(outputData);
             updateCounter = 0;
@@ -95,7 +97,7 @@ public class AirSimulation : MonoBehaviour {
         }
         int randomIndex = (int)Random.Range(0f, (float)inputData.Length - 1f);
         int centerIndex = 0 + (50 * 100) + (50 * 100 * 100);
-        inputData[centerIndex] = 20000000f;
+        inputData[randomIndex] = 500000000f;
         //make output array
         outputData = new float[numNodes];
 

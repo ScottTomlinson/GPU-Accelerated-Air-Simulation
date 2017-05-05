@@ -74,9 +74,9 @@ Shader "Custom/AirVisualizer" {
 		//int zPos = vertex_id / (yLength*zLength);
 
 		//here we try x then z then y
-		//int xPos = vertex_id % xLength;
-		//int zPos = (vertex_id / xLength) % zLength;
-		//int yPos = vertex_id / (zLength*yLength);
+		int xPos = vertex_id % xLength;
+		int zPos = (vertex_id / xLength) % zLength;
+		int yPos = vertex_id / (zLength*yLength);
 
 		//next we try y then x then z
 		//int yPos = vertex_id % yLength;
@@ -84,10 +84,12 @@ Shader "Custom/AirVisualizer" {
 		//int zPos = vertex_id / (xLength*zLength);
 
 		//and finally y then z then x
-		int yPos = vertex_id % yLength;
-		int zPos = (vertex_id / yLength) % zLength;
-		int xPos = vertex_id / (xLength*zLength);
+		//int yPos = vertex_id % yLength;
+		//int zPos = (vertex_id / yLength) % zLength;
+		//int xPos = vertex_id / (xLength*zLength);
 
+		//for y-z-x
+		//vertex_id = ????
 
 		// Color
 		float value = length(airBuffer[vertex_id]);
