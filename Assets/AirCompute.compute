@@ -1,0 +1,123 @@
+﻿#define BASIC_CUBE_SIZE_THREAD_COUNT 10
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel AirConstituentBalance
+#pragma kernel SetAirNodeQuantity
+#pragma kernel SetDispatchSize
+
+RWTexture2D<float4> Result;
+
+struct VecMatPair
+{
+    float3 pos;
+    float4x4 mat;
+};
+
+RWStructuredBuffer<float> airBuffer;
+
+
+
+RWStructuredBuffer<int> nodeCountBuffer;
+int numNodes;
+RWStructuredBuffer<int> dispatchSizeBuffer;
+int3 dispatchSize;
+
+int width;
+int height;
+int depth;
+
+[numthreads(1,1,1)]
+void SetAirNodeQuantity()
+{
+    numNodes = nodeCountBuffer[0];
+
+    nodeCountBuffer[0] = numNodes;
+}
+
+[numthreads(1, 1, 1)]
+void SetDispatchSize()
+{
+    dispatchSize.x = dispatchSizeBuffer[0];
+    dispatchSize.y = dispatchSizeBuffer[1];
+    dispatchSize.z = dispatchSizeBuffer[2];
+
+    dispatchSizeBuffer[0] = dispatchSize.x;
+    dispatchSizeBuffer[1] = dispatchSize.y;
+    dispatchSizeBuffer[2] = dispatchSize.z;
+}
+
+//basic cube of threads
+[numthreads(BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT)]
+void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint uid : SV_GroupIndex)
+{
+    //3D position to 1D array index = x + (y * maxX) + (z * maxX * maxY) from http://stackoverflow.com/questions/26162501/how-do-you-flatten-a-3d-array
+    //backwards http://stackoverflow.com/questions/11316490/convert-a-1d-array-index-to-a-3d-array-index
+    // int zDirection = i % zLength;
+    // int yDirection = (i / zLength) % yLength;
+    // int xDirection = i / (yLength * zLength);
+
+    //26 neighbors in 3D space + this node = 27 total (3x3x3)
+    //find their positions
+    int indexes[27];
+    int i = 0;
+    [loop]
+    for (int x = -1; x <= 1; x++)
+    {
+        [loop]
+        for (int y = -1; y <= 1; y++)
+        {
+            [loop]
+            for (int z = -1; z <= 1; z++)
+            {
+                //neighbor pos = this pos + index clamped to within overall boundaries
+                int _x = clamp(id.x + x, 0, width - 1);
+                int _y = clamp(id.y + y, 0, height - 1);
+                int _z = clamp(id.z + z, 0, depth - 1);
+                //set the index data
+                indexes[i] = _x + (width * _y) + (_z * depth * width);
+                //iterate the i
+                i++;
+            }
+        }
+    }
+    //find the total of all neighbors and self
+    float totalValues = 0;
+    totalValues = airBuffer[indexes[0]] + airBuffer[indexes[1]] + airBuffer[indexes[2]] + airBuffer[indexes[3]] + 
+        airBuffer[indexes[4]] + airBuffer[indexes[5]] + airBuffer[indexes[6]] + airBuffer[indexes[7]] + airBuffer[indexes[8]] + 
+        airBuffer[indexes[9]] + airBuffer[indexes[10]] + airBuffer[indexes[11]] + airBuffer[indexes[12]] + airBuffer[indexes[13]] + 
+        airBuffer[indexes[14]] + airBuffer[indexes[15]] + airBuffer[indexes[16]] + airBuffer[indexes[17]] + airBuffer[indexes[18]] + 
+        airBuffer[indexes[19]] + airBuffer[indexes[20]] + airBuffer[indexes[21]] + airBuffer[indexes[22]] + airBuffer[indexes[23]] + 
+        airBuffer[indexes[24]] + airBuffer[indexes[25]] + airBuffer[indexes[26]];
+
+    //balance the total
+    float balancedValue = totalValues / 27;
+    //set all neighbors and self to balanced value
+    airBuffer[indexes[0]] = balancedValue;
+    airBuffer[indexes[1]] = balancedValue;
+    airBuffer[indexes[2]] = balancedValue;
+    airBuffer[indexes[3]] = balancedValue;
+    airBuffer[indexes[4]] = balancedValue;
+    airBuffer[indexes[5]] = balancedValue;
+    airBuffer[indexes[6]] = balancedValue;
+    airBuffer[indexes[7]] = balancedValue;
+    airBuffer[indexes[8]] = balancedValue;
+    airBuffer[indexes[9]] = balancedValue;
+    airBuffer[indexes[10]] = balancedValue;
+    airBuffer[indexes[11]] = balancedValue;
+    airBuffer[indexes[12]] = balancedValue;
+    airBuffer[indexes[13]] = balancedValue;
+    airBuffer[indexes[14]] = balancedValue;
+    airBuffer[indexes[15]] = balancedValue;
+    airBuffer[indexes[16]] = balancedValue;
+    airBuffer[indexes[17]] = balancedValue;
+    airBuffer[indexes[18]] = balancedValue;
+    airBuffer[indexes[19]] = balancedValue;
+    airBuffer[indexes[20]] = balancedValue;
+    airBuffer[indexes[21]] = balancedValue;
+    airBuffer[indexes[22]] = balancedValue;
+    airBuffer[indexes[23]] = balancedValue;
+    airBuffer[indexes[24]] = balancedValue;
+    airBuffer[indexes[25]] = balancedValue;
+    airBuffer[indexes[26]] = balancedValue;
+
+}
