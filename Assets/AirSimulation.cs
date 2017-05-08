@@ -96,8 +96,11 @@ public class AirSimulation : MonoBehaviour {
             inputData[i] = 0f;
         }
         int randomIndex = (int)Random.Range(0f, (float)inputData.Length - 1f);
-        int centerIndex = 0 + (50 * 100) + (50 * 100 * 100);
-        inputData[randomIndex] = 500000000f;
+        int _x = 0;
+        int _y = 0;
+        int _z = 99;
+        int centerIndex = _x + (_z * 100) + (_y * 100 * 100);
+        inputData[centerIndex] = 100000f;
         //make output array
         outputData = new float[numNodes];
 
