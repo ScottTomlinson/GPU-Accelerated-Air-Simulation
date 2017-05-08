@@ -9,13 +9,11 @@ public class AirSimulation : MonoBehaviour {
 
     public ComputeShader airShader;
     public Material visualMaterial;
-    //basic cube size in compute shader is 10 nodes
-    [Tooltip("number of basic cubes to be build in the compute shader, each basic cube is 10x10x10 nodes")]
+    [Tooltip("number of basic cubes to be built in the compute shader, each basic cube is 10x10x10 nodes")]
     public int cubeSize = 10;
     private int basicCubeSize = 1000;
     private int numNodes;
     private ComputeBuffer airBuffer;
-    private ComputeBuffer textBuffer;
     private ComputeBuffer visualBuffer;
 
 
@@ -25,6 +23,7 @@ public class AirSimulation : MonoBehaviour {
     private int kernalOne = 0;
 
     private int updateCounter = 0;
+    [Tooltip("How many frames to wait between GPU data transfers")]
     public int getDataInterval = 10;
 
 	// Use this for initialization
@@ -97,10 +96,10 @@ public class AirSimulation : MonoBehaviour {
         }
         int randomIndex = (int)Random.Range(0f, (float)inputData.Length - 1f);
         int _x = 0;
-        int _y = 0;
-        int _z = 99;
+        int _y = 7;
+        int _z = 50;
         int centerIndex = _x + (_z * 100) + (_y * 100 * 100);
-        inputData[centerIndex] = 100000f;
+        inputData[centerIndex] = 5000000f;
         //make output array
         outputData = new float[numNodes];
 
@@ -143,10 +142,4 @@ public class AirSimulation : MonoBehaviour {
         visualMaterial.SetPass(0);
         Graphics.DrawProcedural(MeshTopology.Points, numNodes, 1);
     }
-}
-
-struct VecMatPair
-{
-    public Vector3 point;
-    public Matrix4x4 matrix;
 }

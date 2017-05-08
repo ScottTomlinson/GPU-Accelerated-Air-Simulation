@@ -55,7 +55,7 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
     // int zDirection = i % zLength;
     // int yDirection = (i / zLength) % yLength;
     // int xDirection = i / (yLength * zLength);
-
+    int3 _pos = id;
     //26 neighbors in 3D space + this node = 27 total (3x3x3)
     //find their positions
     int indexes[27];
@@ -70,24 +70,26 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
             [loop]
             for (int z = -1; z <= 1; z++)
             {
-                //neighbor pos = this pos + index clamped to within overall boundaries
-                int xpos = id.x + x;
-                int ypos = id.y + y;
-                int zpos = id.z + z;
+                //neighbor pos = this pos + index
+                int xpos = _pos.x + x;
+                int ypos = _pos.y + y;
+                int zpos = _pos.z + z;
 
+                //returns 0 if actual neighbor position is outside of overall boundaries, 1 if inside
+                //add up all interior values later to find number of neighbor nodes
+                float3 _min = { 0, 0, 0 };
+                float3 _max = { width - 1, height - 1, depth - 1 };
+                float3 _cur = { xpos, zpos, ypos };
+                interior[i] = step(_min, _cur) * step(_cur, _max);
+
+                //clamp to within overall boundaries to avoid array index errors in airBuffer
                 int _x = clamp(xpos, 0, 99);
                 int _y = clamp(ypos, 0, 99);
                 int _z = clamp(zpos, 0, 99);
-                //set the index data for the neighbor node
+
+                //set the index data for the "neighbor" node -- not actually the neighbor if real neighbor is out of bounds
+                //x then z then y
                 indexes[i] = _x + (_z * width) + (_y * depth * width);
-
-                //returns 0 if neighbor position is outside of overall boundaries, 1 if inside
-                //add up all interior values to find number of neighbor nodes
-                interior[i] = 
-                    (step(0, xpos) * step(xpos, width -1)) * 
-                    (step(0, ypos) * step(ypos, height -1)) * 
-                    (step(0, zpos) * step(zpos, depth -1));
-
 
                 //iterate the i
                 i++;
@@ -125,7 +127,7 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
         (airBuffer[indexes[25]] * interior[25]) + 
         (airBuffer[indexes[26]] * interior[26]);
 
-    //balance the total
+    //add all interior values to find number of neighbor nodes
     float nodeTotal =
         interior[0] +
         interior[1] +
@@ -154,41 +156,11 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
         interior[24] +
         interior[25] +
         interior[26];
-
+    
+    //balance the total
     float balancedValue = totalValues / nodeTotal;
-    //float finalValue = clamp(balancedValue, 0, 100000000);
+
     //set all neighbors and self to balanced value
-    /*
-    airBuffer[indexes[0]] = finalValue;
-    airBuffer[indexes[1]] = finalValue;
-    airBuffer[indexes[2]] = finalValue;
-    airBuffer[indexes[3]] = finalValue;
-    airBuffer[indexes[4]] = finalValue;
-    airBuffer[indexes[5]] = finalValue;
-    airBuffer[indexes[6]] = finalValue;
-    airBuffer[indexes[7]] = finalValue;
-    airBuffer[indexes[8]] = finalValue;
-    airBuffer[indexes[9]] = finalValue;
-    airBuffer[indexes[10]] = finalValue;
-    airBuffer[indexes[11]] = finalValue;
-    airBuffer[indexes[12]] = finalValue;
-    airBuffer[indexes[13]] = finalValue;
-    airBuffer[indexes[14]] = finalValue;
-    airBuffer[indexes[15]] = finalValue;
-    airBuffer[indexes[16]] = finalValue;
-    airBuffer[indexes[17]] = finalValue;
-    airBuffer[indexes[18]] = finalValue;
-    airBuffer[indexes[19]] = finalValue;
-    airBuffer[indexes[20]] = finalValue;
-    airBuffer[indexes[21]] = finalValue;
-    airBuffer[indexes[22]] = finalValue;
-    airBuffer[indexes[23]] = finalValue;
-    airBuffer[indexes[24]] = finalValue;
-    airBuffer[indexes[25]] = finalValue;
-    airBuffer[indexes[26]] = finalValue;
-    */
-
-
     airBuffer[indexes[0]] = balancedValue;
     airBuffer[indexes[1]] = balancedValue;
     airBuffer[indexes[2]] = balancedValue;

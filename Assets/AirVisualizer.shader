@@ -53,43 +53,15 @@ Shader "Custom/AirVisualizer" {
 	{
 		PS_INPUT o = (PS_INPUT)0;
 
+		float3 _size = { 100,100,100 };
 		int xLength = 100;
 		int yLength = 100;
 		int zLength = 100;
 
-		//fuck there are 6 ways to do this
-		//this assume z then y then x
-		//int zPos = vertex_id % zLength;
-		//int yPos = (vertex_id / zLength) % yLength;
-		//int xPos = vertex_id / (yLength * zLength);
-
-		//and here we try z then x then y
-		//int zPos = vertex_id % zLength;
-		//int xPos = (vertex_id / zLength) % xLength;
-		//int yPos = vertex_id / (xLength * yLength);
-
-		//our equation in the compute shader does x then y then z?
-		//int xPos = vertex_id % xLength;
-		//int yPos = (vertex_id / xLength) % yLength;
-		//int zPos = vertex_id / (yLength*zLength);
-
-		//here we try x then z then y
-		int xPos = vertex_id % xLength;
-		int zPos = (vertex_id / xLength) % zLength;
-		int yPos = vertex_id / (zLength*yLength);
-
-		//next we try y then x then z
-		//int yPos = vertex_id % yLength;
-		//int xPos = (vertex_id / yLength) % xLength;
-		//int zPos = vertex_id / (xLength*zLength);
-
-		//and finally y then z then x
-		//int yPos = vertex_id % yLength;
-		//int zPos = (vertex_id / yLength) % zLength;
-		//int xPos = vertex_id / (xLength*zLength);
-
-		//for y-z-x
-		//vertex_id = ????
+		//x then z then y
+		int xPos = vertex_id % _size.x;
+		int zPos = (vertex_id / _size.x) % _size.z;
+		int yPos = vertex_id / (_size.z * _size.y);
 
 		// Color
 		float value = length(airBuffer[vertex_id]);
@@ -97,10 +69,7 @@ Shader "Custom/AirVisualizer" {
 		o.color = lerp(_ColorLow, _ColorHigh, lerpValue);
 
 		// Position
-		float3 pos;
-		pos.x = xPos;
-		pos.y = yPos;
-		pos.z = zPos;
+		float3 pos = { xPos, yPos, zPos };
 
 		o.position = UnityObjectToClipPos(pos);
 
