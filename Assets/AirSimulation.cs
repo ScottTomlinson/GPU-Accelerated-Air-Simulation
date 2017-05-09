@@ -39,11 +39,11 @@ public class AirSimulation : MonoBehaviour {
 	// Update is called once per frame
 	void FixedUpdate ()
     {
-        RunAirSim();
 
         updateCounter++;
         if(updateCounter > getDataInterval)
         {
+            RunAirSim();
             airBuffer.GetData(outputData);
             int randomIndex = (int)Random.Range(0f, (float)outputData.Length + 1f);
             //outputData[randomIndex] = 20000000f;
@@ -94,16 +94,21 @@ public class AirSimulation : MonoBehaviour {
             //inputData[i] = Random.Range(0f, 50f);
             inputData[i] = 0f;
         }
-        int randomIndex = (int)Random.Range(0f, (float)inputData.Length - 1f);
+
+        ///////////////////
+        //**FOR TESTING**//
+        ///////////////////
+        //set an individual node to a certain amount
         int _x = 0;
-        int _y = 7;
-        int _z = 50;
+        int _y = 0;
+        int _z = 0;
         int centerIndex = _x + (_z * 100) + (_y * 100 * 100);
-        inputData[centerIndex] = 5000000f;
+        inputData[centerIndex] = 50000000f;
+
         //make output array
         outputData = new float[numNodes];
 
-        //find the kernal
+        //find the appropriate kernal
         kernalOne = airShader.FindKernel("AirConstituentBalance");
 
         //make a buffer and set the input

@@ -5,17 +5,7 @@
 #pragma kernel SetAirNodeQuantity
 #pragma kernel SetDispatchSize
 
-RWTexture2D<float4> Result;
-
-struct VecMatPair
-{
-    float3 pos;
-    float4x4 mat;
-};
-
 RWStructuredBuffer<float> airBuffer;
-
-
 
 RWStructuredBuffer<int> nodeCountBuffer;
 int numNodes;
@@ -46,21 +36,26 @@ void SetDispatchSize()
     dispatchSizeBuffer[2] = dispatchSize.z;
 }
 
+void BalanceNodes(int selfIndex, int otherIndex, float availabilityMultiplier)
+{
+    float difference = airBuffer[selfIndex] - airBuffer[otherIndex];
+    difference /= 2;
+    difference *= availabilityMultiplier;
+    airBuffer[selfIndex] -= difference;
+    airBuffer[otherIndex] += difference;
+}
+
 //basic cube of threads
 [numthreads(BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT)]
 void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint uid : SV_GroupIndex)
 {
     //3D position to 1D array index = x + (y * maxX) + (z * maxX * maxY) from http://stackoverflow.com/questions/26162501/how-do-you-flatten-a-3d-array
-    //backwards http://stackoverflow.com/questions/11316490/convert-a-1d-array-index-to-a-3d-array-index
-    // int zDirection = i % zLength;
-    // int yDirection = (i / zLength) % yLength;
-    // int xDirection = i / (yLength * zLength);
-    int3 _pos = id;
-    //26 neighbors in 3D space + this node = 27 total (3x3x3)
-    //find their positions
-    int indexes[27];
-    float interior[27];
-    int i = 0;
+    int _selfIndex = id.x + (id.z * width) + (id.y * depth * width);
+
+    //declare variables for use in the for loops
+    float3 _min = { 0, 0, 0 };
+    float3 _max = { width - 1, height - 1, depth - 1 };
+
     [loop]
     for (int x = -1; x <= 1; x++)
     {
@@ -70,123 +65,26 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
             [loop]
             for (int z = -1; z <= 1; z++)
             {
-                //neighbor pos = this pos + index
-                int xpos = _pos.x + x;
-                int ypos = _pos.y + y;
-                int zpos = _pos.z + z;
-
+                int posX = id.x + x;
+                int posZ = id.z + z;
+                int posY = id.y + y;
                 //returns 0 if actual neighbor position is outside of overall boundaries, 1 if inside
-                //add up all interior values later to find number of neighbor nodes
-                float3 _min = { 0, 0, 0 };
-                float3 _max = { width - 1, height - 1, depth - 1 };
-                float3 _cur = { xpos, zpos, ypos };
-                interior[i] = step(_min, _cur) * step(_cur, _max);
+                //basically a boolean check without the gpu crying
+                float3 _cur = { posX, posZ, posY };
+                float _availabilityMultiplier = (step(_min, _cur) * step(_cur, _max));
 
                 //clamp to within overall boundaries to avoid array index errors in airBuffer
-                int _x = clamp(xpos, 0, 99);
-                int _y = clamp(ypos, 0, 99);
-                int _z = clamp(zpos, 0, 99);
+                int _x = clamp(posX, 0, 99);
+                int _y = clamp(posY, 0, 99);
+                int _z = clamp(posZ, 0, 99);
 
-                //set the index data for the "neighbor" node -- not actually the neighbor if real neighbor is out of bounds
-                //x then z then y
-                indexes[i] = _x + (_z * width) + (_y * depth * width);
+                //set the index data for the "neighbor" node -- not actually the neighbor if out of bounds
+                //but having an index in place avoids array errors
+                int _otherIndex = _x + (_z * width) + (_y * depth * width);
 
-                //iterate the i
-                i++;
+                //balance airBuffer value with selected neighbor node
+                BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
             }
         }
     }
-
-    //find the total of all neighbors and self
-    float totalValues = 
-        (airBuffer[indexes[0]] * interior[0]) + 
-        (airBuffer[indexes[1]] * interior[1]) + 
-        (airBuffer[indexes[2]] * interior[2]) + 
-        (airBuffer[indexes[3]] * interior[3]) + 
-        (airBuffer[indexes[4]] * interior[4]) + 
-        (airBuffer[indexes[5]] * interior[5]) + 
-        (airBuffer[indexes[6]] * interior[6]) + 
-        (airBuffer[indexes[7]] * interior[7]) + 
-        (airBuffer[indexes[8]] * interior[8]) + 
-        (airBuffer[indexes[9]] * interior[9]) + 
-        (airBuffer[indexes[10]] * interior[10]) + 
-        (airBuffer[indexes[11]] * interior[11]) + 
-        (airBuffer[indexes[12]] * interior[12]) + 
-        (airBuffer[indexes[13]] * interior[13]) + 
-        (airBuffer[indexes[14]] * interior[14]) + 
-        (airBuffer[indexes[15]] * interior[15]) + 
-        (airBuffer[indexes[16]] * interior[16]) + 
-        (airBuffer[indexes[17]] * interior[17]) + 
-        (airBuffer[indexes[18]] * interior[18]) + 
-        (airBuffer[indexes[19]] * interior[19]) + 
-        (airBuffer[indexes[20]] * interior[20]) + 
-        (airBuffer[indexes[21]] * interior[21]) + 
-        (airBuffer[indexes[22]] * interior[22]) + 
-        (airBuffer[indexes[23]] * interior[23]) + 
-        (airBuffer[indexes[24]] * interior[24]) + 
-        (airBuffer[indexes[25]] * interior[25]) + 
-        (airBuffer[indexes[26]] * interior[26]);
-
-    //add all interior values to find number of neighbor nodes
-    float nodeTotal =
-        interior[0] +
-        interior[1] +
-        interior[2] +
-        interior[3] +
-        interior[4] +
-        interior[5] +
-        interior[6] +
-        interior[7] +
-        interior[8] +
-        interior[9] +
-        interior[10] +
-        interior[11] +
-        interior[12] +
-        interior[13] +
-        interior[14] +
-        interior[15] +
-        interior[16] +
-        interior[17] +
-        interior[18] +
-        interior[19] +
-        interior[20] +
-        interior[21] +
-        interior[22] +
-        interior[23] +
-        interior[24] +
-        interior[25] +
-        interior[26];
-    
-    //balance the total
-    float balancedValue = totalValues / nodeTotal;
-
-    //set all neighbors and self to balanced value
-    airBuffer[indexes[0]] = balancedValue;
-    airBuffer[indexes[1]] = balancedValue;
-    airBuffer[indexes[2]] = balancedValue;
-    airBuffer[indexes[3]] = balancedValue;
-    airBuffer[indexes[4]] = balancedValue;
-    airBuffer[indexes[5]] = balancedValue;
-    airBuffer[indexes[6]] = balancedValue;
-    airBuffer[indexes[7]] = balancedValue;
-    airBuffer[indexes[8]] = balancedValue;
-    airBuffer[indexes[9]] = balancedValue;
-    airBuffer[indexes[10]] = balancedValue;
-    airBuffer[indexes[11]] = balancedValue;
-    airBuffer[indexes[12]] = balancedValue;
-    airBuffer[indexes[13]] = balancedValue;
-    airBuffer[indexes[14]] = balancedValue;
-    airBuffer[indexes[15]] = balancedValue;
-    airBuffer[indexes[16]] = balancedValue;
-    airBuffer[indexes[17]] = balancedValue;
-    airBuffer[indexes[18]] = balancedValue;
-    airBuffer[indexes[19]] = balancedValue;
-    airBuffer[indexes[20]] = balancedValue;
-    airBuffer[indexes[21]] = balancedValue;
-    airBuffer[indexes[22]] = balancedValue;
-    airBuffer[indexes[23]] = balancedValue;
-    airBuffer[indexes[24]] = balancedValue;
-    airBuffer[indexes[25]] = balancedValue;
-    airBuffer[indexes[26]] = balancedValue;
-
 }
