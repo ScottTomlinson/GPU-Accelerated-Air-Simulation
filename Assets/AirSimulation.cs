@@ -22,17 +22,15 @@ public class AirSimulation : MonoBehaviour {
 
     private int kernalOne = 0;
 
-    private int updateCounter = 0;
     [Tooltip("How many frames to wait between GPU data transfers")]
     public int getDataInterval = 10;
+    private int updateCounter = 0;
 
-	// Use this for initialization
-	void Start ()
+    // Use this for initialization
+    void Start ()
     {
-        Application.targetFrameRate = 240;
         numNodes = (int)Mathf.Pow((float)cubeSize, 3f);
         numNodes *= basicCubeSize;
-        Debug.Log("Number of nodes on CPU: " + numNodes);
         SetupAirSim();
     }
     
@@ -63,9 +61,9 @@ public class AirSimulation : MonoBehaviour {
         //**FOR TESTING**//
         ///////////////////
         //set an individual node to a certain amount
-        int _x = 0;
-        int _y = 0;
-        int _z = 0;
+        int _x = 74;
+        int _y = 49;
+        int _z = 24;
         int desiredIndex = _x + (_z * 100) + (_y * 100 * 100);
         inputData[desiredIndex] = 50000000f;
 
