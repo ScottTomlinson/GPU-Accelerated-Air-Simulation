@@ -39,12 +39,12 @@ public class AirSimulation : MonoBehaviour {
 	void FixedUpdate ()
     {
 
-        RunAirSim();
+        //RunAirSim();
         updateCounter++;
         if(updateCounter > getDataInterval)
         {
             //move RunAirSim() to outside of  updateCounter if statement to run every frame, but only update graphics every n frames
-            //RunAirSim();
+            RunAirSim();
             airBuffer.GetData(outputData); 
             visualBuffer.SetData(outputData);
             updateCounter = 0;
@@ -73,8 +73,8 @@ public class AirSimulation : MonoBehaviour {
         int _z = 6;
         inputData[Flatten3DIndex(_x, _y, _z)] = 500000000f;
 
-        ChangeTransferabilityPlaneXY(0, 99, 0, 75, 10, 0.0f);
-        ChangeTransferabilityPlaneXZ(0, 99, 9, 50, 74, 0.0f);
+        //ChangeTransferabilityPlaneXY(0, 99, 0, 75, 10, 0.0f);
+        //ChangeTransferabilityPlaneXZ(0, 99, 9, 50, 74, 0.0f);
         
         ///////////////////
         //**FOR TESTING**//
@@ -119,7 +119,7 @@ public class AirSimulation : MonoBehaviour {
     void OnRenderObject()
     {
         visualMaterial.SetPass(0);
-        Graphics.DrawProcedural(MeshTopology.Points, numNodes, 1);
+        Graphics.DrawProcedural(MeshTopology.Points, numNodes);
     }
 
     int Flatten3DIndex(int x, int y, int z)

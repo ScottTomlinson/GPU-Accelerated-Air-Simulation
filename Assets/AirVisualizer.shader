@@ -18,6 +18,7 @@ Shader "Custom/AirVisualizer" {
 #pragma target 5.0
 #pragma vertex vert
 #pragma fragment frag
+#pragma geometry geom
 
 #include "UnityCG.cginc"
 
@@ -65,6 +66,22 @@ Shader "Custom/AirVisualizer" {
 		o.position = UnityObjectToClipPos(pos);
 
 		return o;
+	}
+
+	//geometry shader
+	[maxvertexcount(4)]
+	void geom(point PS_INPUT input[1], inout TriangleStream<PS_INPUT> outputStream) {
+		PS_INPUT output;
+		float4 position = input[0].position;
+		for (int x = 0; x < 2; x++) {
+			for (int y = 0; y < 2; y++) {
+				float3 _position = { (float)x, 0, (float)y };
+				output.position = position + UnityObjectToClipPos(_position);
+				output.color = input[0].color;
+				outputStream.Append(output);
+			}
+		}
+		outputStream.RestartStrip();
 	}
 
 	// Pixel shader
