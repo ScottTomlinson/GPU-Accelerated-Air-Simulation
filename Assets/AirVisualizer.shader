@@ -62,7 +62,7 @@ Shader "Custom/AirVisualizer" {
 		o.color = lerp(_ColorLow, _ColorHigh, lerpValue);
 
 		// Position
-		float3 pos = { xPos, yPos, zPos };
+		float3 pos = { xPos * 2, yPos * 2, zPos * 2 };
 		o.position = UnityObjectToClipPos(pos);
 
 		return o;
@@ -75,8 +75,9 @@ Shader "Custom/AirVisualizer" {
 		float4 position = input[0].position;
 		for (int x = 0; x < 2; x++) {
 			for (int y = 0; y < 2; y++) {
-				float3 _position = { (float)x, 0, (float)y };
+				float3 _position = { (float)x * 2, 0, (float)y * 2 };
 				output.position = position + UnityObjectToClipPos(_position);
+				//output.position = mul(UNITY_MATRIX_VP, output.position);
 				output.color = input[0].color;
 				outputStream.Append(output);
 			}
