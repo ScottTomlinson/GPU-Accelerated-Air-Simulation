@@ -1,9 +1,5 @@
 ﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
 Shader "Custom/AirVisualizer" {
 	Properties
 	{
@@ -66,7 +62,6 @@ Shader "Custom/AirVisualizer" {
 
 		// Position
 		float3 pos = { xPos, yPos, zPos };
-
 		o.position = UnityObjectToClipPos(pos);
 
 		return o;
