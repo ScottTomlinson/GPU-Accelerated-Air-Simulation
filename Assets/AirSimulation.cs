@@ -9,20 +9,21 @@ public class AirSimulation : MonoBehaviour {
 
     public ComputeShader airShader;
     public Material visualMaterial;
-    [Tooltip("number of basic cubes to be built in the compute shader, each basic cube is 10x10x10 nodes")]
+    [Tooltip("Number of basic cubes to be built along each axis in the compute shader, each basic cube is 10x10x10 nodes")]
     public int cubeSize = 10;
     private int basicCubeSize = 1000;
     private int numNodes;
     private ComputeBuffer airBuffer;
     private ComputeBuffer visualBuffer;
-
+    private ComputeBuffer transferBuffer;
 
     private float[] inputData;
     private float[] outputData;
+    private float[] transferability;
 
     private int kernalOne = 0;
 
-    [Tooltip("How many frames to wait between GPU data transfers")]
+    [Tooltip("Number of frames to skip between GPU data transfers")]
     public int getDataInterval = 10;
     private int updateCounter = 0;
 
@@ -38,16 +39,14 @@ public class AirSimulation : MonoBehaviour {
 	void FixedUpdate ()
     {
 
+        RunAirSim();
         updateCounter++;
         if(updateCounter > getDataInterval)
         {
             //move RunAirSim() to outside of  updateCounter if statement to run every frame, but only update graphics every n frames
-            RunAirSim();
-            airBuffer.GetData(outputData);
-            //int randomIndex = (int)Random.Range(0f, (float)outputData.Length + 1f);
-            //outputData[randomIndex] = 200f;
+            //RunAirSim();
+            airBuffer.GetData(outputData); 
             visualBuffer.SetData(outputData);
-            //airBuffer.SetData(outputData);
             updateCounter = 0;
         }
     }
@@ -57,26 +56,48 @@ public class AirSimulation : MonoBehaviour {
         //make input array
         inputData = new float[numNodes];
 
+        transferability = new float[numNodes];
+        for(int i = 0; i < transferability.Length; i++)
+        {
+            transferability[i] = 1;
+        }
+
+
         ///////////////////
         //**FOR TESTING**//
         ///////////////////
         //set an individual node to a certain amount
-        int _x = 74;
-        int _y = 49;
-        int _z = 24;
-        int desiredIndex = _x + (_z * 100) + (_y * 100 * 100);
-        inputData[desiredIndex] = 50000000f;
+        int _x = 10;
+        int _y = 15;
+        int _z = 4;
+        inputData[Flatten3DIndex(_x, _y, _z)] = 5000000f;
+
+        ChangeTransferabilityPlaneXY(0, 25, 0, 25, 0, 0.0f);
+        ChangeTransferabilityPlaneXZ(0, 25, 0, 25, 0, 0.0f);
+        ChangeTransferabilityPlaneYZ(0, 25, 0, 25, 0, 0.0f);
+
+        ChangeTransferabilityPlaneXY(0, 25, 0, 25, 25, 0.0f);
+        ChangeTransferabilityPlaneXZ(0, 25, 0, 25, 25, 0.0f);
+        ChangeTransferabilityPlaneYZ(0, 25, 0, 25, 25, 0.0f);
+
+        ChangeTransferabilityPlaneXZ(0, 25, 25, 25, 25, 1.0f);
+        ///////////////////
+        //**FOR TESTING**//
+        ///////////////////
 
         //make output array
         outputData = new float[numNodes];
 
         //find the appropriate kernal
         kernalOne = airShader.FindKernel("AirConstituentBalance");
+        
 
-        //make a buffer and set the input
+        //make buffers and set inputs
         airBuffer = new ComputeBuffer(numNodes, sizeof(float));
         airBuffer.SetData(inputData);
-        
+        transferBuffer = new ComputeBuffer(numNodes, sizeof(float));
+        transferBuffer.SetData(transferability);
+
         //tell the compute shader important info
         airShader.SetInt("numNodes", numNodes);
         airShader.SetInt("width", 10 * cubeSize);
@@ -85,6 +106,7 @@ public class AirSimulation : MonoBehaviour {
 
         //set the RWStructuredBuffer in the compute shader to match up with our airBuffer here
         airShader.SetBuffer(kernalOne, "airBuffer", airBuffer);
+        airShader.SetBuffer(kernalOne, "transferabilityBuffer", transferBuffer);
         airShader.Dispatch(kernalOne, cubeSize, cubeSize, cubeSize);
 
         //visual stuff
@@ -102,6 +124,45 @@ public class AirSimulation : MonoBehaviour {
     void OnRenderObject()
     {
         visualMaterial.SetPass(0);
-        Graphics.DrawProcedural(MeshTopology.Points, numNodes, 1);
+        Graphics.DrawProcedural(MeshTopology.Quads, numNodes, 1);
+    }
+
+    int Flatten3DIndex(int x, int y, int z)
+    {
+        return x + (z * 100) + (y * 100 * 100);
+    }
+
+    void ChangeTransferabilityPlaneXY(int _xStart, int _xEnd, int _yStart, int _yEnd, int _zPlane, float newValue)
+    {
+        for(int x = _xStart; x <= _xEnd; x++)
+        {
+            for(int y = _yStart; y <= _yEnd; y++)
+            {
+                int index = Flatten3DIndex(x, y, _zPlane);
+                transferability[index] = newValue;
+            }
+        }
+    }
+    void ChangeTransferabilityPlaneXZ(int _xStart, int _xEnd, int _zStart, int _zEnd, int _yPlane, float newValue)
+    {
+        for (int x = _xStart; x <= _xEnd; x++)
+        {
+            for (int z = _zStart; z <= _zEnd; z++)
+            {
+                int index = Flatten3DIndex(x, _yPlane, z);
+                transferability[index] = newValue;
+            }
+        }
+    }
+    void ChangeTransferabilityPlaneYZ(int _yStart, int _yEnd, int _zStart, int _zEnd, int _xPlane, float newValue)
+    {
+        for (int y = _yStart; y <= _yEnd; y++)
+        {
+            for (int z = _zStart; z <= _zEnd; z++)
+            {
+                int index = Flatten3DIndex(_xPlane, y, z);
+                transferability[index] = newValue;
+            }
+        }
     }
 }

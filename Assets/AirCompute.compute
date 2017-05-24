@@ -2,45 +2,21 @@
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel AirConstituentBalance
-#pragma kernel SetAirNodeQuantity
-#pragma kernel SetDispatchSize
 
 RWStructuredBuffer<float> airBuffer;
+RWStructuredBuffer<float> transferabilityBuffer;
 
-RWStructuredBuffer<int> nodeCountBuffer;
+
 int numNodes;
-RWStructuredBuffer<int> dispatchSizeBuffer;
-int3 dispatchSize;
 
 int width;
 int height;
 int depth;
 
-[numthreads(1,1,1)]
-void SetAirNodeQuantity()
-{
-    numNodes = nodeCountBuffer[0];
-
-    nodeCountBuffer[0] = numNodes;
-}
-
-[numthreads(1, 1, 1)]
-void SetDispatchSize()
-{
-    dispatchSize.x = dispatchSizeBuffer[0];
-    dispatchSize.y = dispatchSizeBuffer[1];
-    dispatchSize.z = dispatchSizeBuffer[2];
-
-    dispatchSizeBuffer[0] = dispatchSize.x;
-    dispatchSizeBuffer[1] = dispatchSize.y;
-    dispatchSizeBuffer[2] = dispatchSize.z;
-}
-
 void BalanceNodes(int selfIndex, int otherIndex, float availabilityMultiplier)
 {
     float difference = airBuffer[selfIndex] - airBuffer[otherIndex];
-    difference /= 2;
-    difference *= availabilityMultiplier;
+    difference = (availabilityMultiplier * transferabilityBuffer[otherIndex] * transferabilityBuffer[selfIndex] * difference) / 2;
     airBuffer[selfIndex] -= difference;
     airBuffer[otherIndex] += difference;
 }
@@ -83,6 +59,8 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
                 int _otherIndex = _x + (_z * width) + (_y * depth * width);
 
                 //balance airBuffer value with selected neighbor node
+                //this is causing problems where different threads are altering the same array indexes
+                //causing air to be "lost" or "gained"
                 BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
             }
         }
