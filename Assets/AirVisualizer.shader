@@ -17,17 +17,10 @@ Shader "Custom/AirVisualizer" {
 		CGPROGRAM
 #pragma target 5.0
 #pragma vertex vert
-#pragma fragment frag
 #pragma geometry geom
+#pragma fragment frag
 
 #include "UnityCG.cginc"
-
-		// Particle's data
-	struct Particle
-	{
-		float3 position;
-		float3 velocity;
-	};
 
 	// Pixel shader input
 	struct PS_INPUT
@@ -48,13 +41,7 @@ Shader "Custom/AirVisualizer" {
 	PS_INPUT vert(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 	{
 		PS_INPUT o = (PS_INPUT)0;
-
 		float3 _size = { 100,100,100 };
-
-		//1D index to 3D array http://stackoverflow.com/questions/11316490/convert-a-1d-array-index-to-a-3d-array-index
-		int xPos = vertex_id % (_size.x);
-		int zPos = (vertex_id / (_size.x)) % (_size.z);
-		int yPos = vertex_id / (_size.z * _size.y);
 
 		// Color
 		float value = length(airBuffer[vertex_id]);
@@ -62,8 +49,8 @@ Shader "Custom/AirVisualizer" {
 		o.color = lerp(_ColorLow, _ColorHigh, lerpValue);
 
 		// Position
-		float3 pos = { xPos * 2, yPos * 2, zPos * 2 };
-		o.position = UnityObjectToClipPos(pos);
+		//1D index to 3D array http://stackoverflow.com/questions/11316490/convert-a-1d-array-index-to-a-3d-array-index
+		o.position = float4(vertex_id % _size.x, vertex_id / (_size.z * _size.x), (vertex_id / 100) % 100, 1);;
 
 		return o;
 	}
@@ -75,9 +62,9 @@ Shader "Custom/AirVisualizer" {
 		float4 position = input[0].position;
 		for (int x = 0; x < 2; x++) {
 			for (int y = 0; y < 2; y++) {
-				float3 _position = { (float)x * 2, 0, (float)y * 2 };
-				output.position = position + UnityObjectToClipPos(_position);
-				//output.position = mul(UNITY_MATRIX_VP, output.position);
+				float3 _position = { (float)x - 0.5, 0, (float)y - 0.5 };
+				output.position = position + float4((float)x, 0, (float)y, 0);
+				output.position = mul(UNITY_MATRIX_VP, output.position);
 				output.color = input[0].color;
 				outputStream.Append(output);
 			}

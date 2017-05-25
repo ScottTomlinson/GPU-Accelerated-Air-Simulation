@@ -68,13 +68,13 @@ public class AirSimulation : MonoBehaviour {
         ///////////////////
 
         //set an individual node to a certain amount
-        int _x = 49;
-        int _y = 49;
-        int _z = 49;
-        inputData[Flatten3DIndex(_x, _y, _z)] = 500000000f;
+        int _x = 50;
+        int _y = 5;
+        int _z = 5;
+        inputData[Flatten3DIndex(_x, _y, _z)] = 50000000f;
 
-        //ChangeTransferabilityPlaneXY(0, 99, 0, 75, 10, 0.0f);
-        //ChangeTransferabilityPlaneXZ(0, 99, 9, 50, 74, 0.0f);
+        ChangeTransferabilityPlaneXY(0, 99, 0, 75, 10, 0.0f);
+        ChangeTransferabilityPlaneXZ(0, 99, 9, 50, 74, 0.0f);
         
         ///////////////////
         //**FOR TESTING**//
