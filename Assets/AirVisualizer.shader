@@ -5,7 +5,7 @@ Shader "Custom/AirVisualizer" {
 	{
 		_ColorLow("Color Slow Speed", Color) = (0, 0, 0.5, 0.1)
 		_ColorHigh("Color High Speed", Color) = (1, 0, 0, 0.8)
-		_HighSpeedValue("High speed Value", Range(0, 50)) = 50
+		_HighPressureValue("High Pressure Value", Range(0, 50)) = 50
 	}
 
 		SubShader
@@ -35,7 +35,7 @@ Shader "Custom/AirVisualizer" {
 	// Properties variables
 	uniform float4 _ColorLow;
 	uniform float4 _ColorHigh;
-	uniform float _HighSpeedValue;
+	uniform float _HighPressureValue;
 
 	// Vertex shader
 	PS_INPUT vert(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
@@ -45,7 +45,7 @@ Shader "Custom/AirVisualizer" {
 
 		// Color
 		float value = length(airBuffer[vertex_id]);
-		float lerpValue = clamp(value / _HighSpeedValue, 0.0f, 1.0f);
+		float lerpValue = clamp(value / _HighPressureValue, 0.0f, 1.0f);
 		o.color = lerp(_ColorLow, _ColorHigh, lerpValue);
 
 		// Position

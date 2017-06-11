@@ -45,8 +45,9 @@ public class AirSimulation : MonoBehaviour {
         {
             //move RunAirSim() to outside of  updateCounter if statement to run every frame, but only update graphics every n frames
             RunAirSim();
-            airBuffer.GetData(outputData); 
-            visualBuffer.SetData(outputData);
+            airBuffer.GetData(outputData);
+            inputData = outputData;
+            visualBuffer.SetData(inputData);
             updateCounter = 0;
         }
     }
@@ -66,16 +67,16 @@ public class AirSimulation : MonoBehaviour {
         ///////////////////
         //**FOR TESTING**//
         ///////////////////
-
+        /*
         //set an individual node to a certain amount
         int _x = 50;
         int _y = 5;
         int _z = 5;
         inputData[Flatten3DIndex(_x, _y, _z)] = 50000000f;
-
+        //make some ''walls''
         ChangeTransferabilityPlaneXY(0, 99, 0, 75, 10, 0.0f);
         ChangeTransferabilityPlaneXZ(0, 99, 9, 50, 74, 0.0f);
-        
+        */
         ///////////////////
         //**FOR TESTING**//
         ///////////////////
@@ -159,5 +160,13 @@ public class AirSimulation : MonoBehaviour {
                 transferability[index] = newValue;
             }
         }
+    }
+
+    public void AddAirAtPoint(int x, int y, int z, float value)
+    {
+        airBuffer.GetData(outputData);
+        inputData = outputData;
+        inputData[Flatten3DIndex(x, y, z)] += value;
+        airBuffer.SetData(inputData);
     }
 }
