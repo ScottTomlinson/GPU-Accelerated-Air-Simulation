@@ -41,7 +41,7 @@ Shader "Custom/AirVisualizer" {
 	PS_INPUT vert(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 	{
 		PS_INPUT o = (PS_INPUT)0;
-		float3 _size = { 100,100,100 };
+		float3 _size = { 96,96,96 };
 
 		// Color
 		float value = length(airBuffer[vertex_id]);
@@ -50,7 +50,7 @@ Shader "Custom/AirVisualizer" {
 
 		// Position
 		//1D index to 3D array http://stackoverflow.com/questions/11316490/convert-a-1d-array-index-to-a-3d-array-index
-		o.position = float4(vertex_id % _size.x, vertex_id / (_size.z * _size.x), (vertex_id / 100) % 100, 1);;
+		o.position = float4(vertex_id % _size.x, vertex_id / (_size.z * _size.x), (vertex_id / 96) % 96, 1);;
 
 		return o;
 	}

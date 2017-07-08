@@ -1,12 +1,13 @@
-﻿#define BASIC_CUBE_SIZE_THREAD_COUNT 10
+﻿#define BASIC_CUBE_SIZE_THREAD_COUNT 8
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel AirConstituentBalance
+#pragma kernel AirDeltaSum
 
 RWStructuredBuffer<float> airBuffer;
 RWStructuredBuffer<float> transferabilityBuffer;
-
-
+RWStructuredBuffer<float> deltas;
+RWStructuredBuffer<int> neighborCount;
 int numNodes;
 
 int width;
@@ -21,17 +22,31 @@ void BalanceNodes(int selfIndex, int otherIndex, float availabilityMultiplier)
     airBuffer[otherIndex] += difference;
 }
 
+float AltBalanceNodes(int selfIndex, int otherIndex, float availabilityMultiplier, float curAir)
+{
+    float difference = curAir - airBuffer[otherIndex];
+    difference = (availabilityMultiplier * transferabilityBuffer[otherIndex] * transferabilityBuffer[selfIndex] * difference) / (neighborCount[selfIndex] * 2);
+    //difference = (availabilityMultiplier * transferabilityBuffer[otherIndex] * transferabilityBuffer[selfIndex] * difference) / 54;
+    deltas[selfIndex] -= difference;
+    return difference;
+}
+
 //basic cube of threads
 [numthreads(BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT)]
-void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint uid : SV_GroupIndex)
+void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 tid : SV_GroupThreadID)
 {
     //3D position to 1D array index = x + (y * maxX) + (z * maxX * maxY) from http://stackoverflow.com/questions/26162501/how-do-you-flatten-a-3d-array
-    int _selfIndex = id.x + (id.z * width) + (id.y * depth * width);
+    int _selfX = (tid.x * 12) + gid.x;
+    int _selfY = (tid.y * 12) + gid.y;
+    int _selfZ = (tid.z * 12) + gid.z;
+    int _selfIndex = _selfX + (_selfY * width) + (_selfZ * depth * width);
+
+    float _curAir = 0;
+    _curAir += airBuffer[_selfIndex];
 
     //declare variables for use in the for loops
     float3 _min = { 0, 0, 0 };
     float3 _max = { width - 1, height - 1, depth - 1 };
-
     [loop]
     for (int x = -1; x <= 1; x++)
     {
@@ -41,28 +56,40 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
             [loop]
             for (int z = -1; z <= 1; z++)
             {
-                int posX = id.x + x;
-                int posZ = id.z + z;
-                int posY = id.y + y;
+                int posX = _selfX + x;
+                int posZ = _selfZ + z;
+                int posY = _selfY + y;
+
                 //returns 0 if actual neighbor position is outside of overall boundaries, 1 if inside
-                //basically a boolean check without the gpu crying
-                float3 _cur = { posX, posZ, posY };
-                float _availabilityMultiplier = (step(_min, _cur) * step(_cur, _max));
+                float3 _curPos = { posX, posZ, posY };
+                float _availabilityMultiplier = (step(_min, _curPos) * step(_curPos, _max)).x;
 
                 //clamp to within overall boundaries to avoid array index errors in airBuffer
-                int _x = clamp(posX, 0, 99);
-                int _y = clamp(posY, 0, 99);
-                int _z = clamp(posZ, 0, 99);
+                int _x = clamp(posX, _min.x, _max.x);
+                int _y = clamp(posY, _min.y, _max.y);
+                int _z = clamp(posZ, _min.z, _max.z);
 
                 //set the index data for the "neighbor" node -- not actually the neighbor if out of bounds
                 //but having an index in place avoids array errors
                 int _otherIndex = _x + (_z * width) + (_y * depth * width);
 
                 //balance airBuffer value with selected neighbor node
-                //this is causing problems where different threads are altering the same array indexes
-                //causing air to be "lost" or "gained"
-                BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
+                //BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
+                //_curAir -= AltBalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier, _curAir);
+                float difference = _curAir - airBuffer[_otherIndex];
+                difference = (_availabilityMultiplier * transferabilityBuffer[_otherIndex] * transferabilityBuffer[_selfIndex] * difference) / (neighborCount[_selfIndex] * 2);
+                deltas[_selfIndex] -= difference;
+                _curAir -= difference;
             }
         }
     }
+}
+
+[numthreads(BASIC_CUBE_SIZE_THREAD_COUNT,BASIC_CUBE_SIZE_THREAD_COUNT,BASIC_CUBE_SIZE_THREAD_COUNT)]
+void AirDeltaSum(uint3 id : SV_DispatchThreadID)
+{
+    int _selfIndex = id.x + (id.z * width) + (id.y * depth * width);
+    //deltas[_selfIndex] *= transferabilityBuffer[_selfIndex];
+    airBuffer[_selfIndex] += deltas[_selfIndex];
+    deltas[_selfIndex] = 0;
 }

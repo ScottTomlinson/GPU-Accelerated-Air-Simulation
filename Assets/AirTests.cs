@@ -22,15 +22,23 @@ public class AirTests : MonoBehaviour {
         {
             AddAirToTestPoint();
         }
+        if(GUI.Button(new Rect(10,50,100,30), "Check Levels"))
+        {
+            CheckAirLevels();
+        }
+        if (GUI.Button(new Rect(10, 90, 100, 30), "Dispatch"))
+        {
+            airSim.DispatchSim();
+        }
+    }
+
+    void CheckAirLevels()
+    {
+        Debug.Log(airSim.GetTotalVolume());
     }
 
     void AddAirToTestPoint()
     {
         airSim.AddAirAtPoint((int)testPoints[testIndex].x, (int)testPoints[testIndex].y, (int)testPoints[testIndex].z, testAmount);
     }
-
-	// Update is called once per frame
-	void Update () {
-		
-	}
 }
