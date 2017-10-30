@@ -49,12 +49,10 @@ public class AirSimulation : MonoBehaviour {
 	// Update is called once per frame
 	void FixedUpdate ()
     {
-
         RunAirSim();
         updateCounter++;
         if(updateCounter > getDataInterval)
         {
-            
             //move RunAirSim() to outside of  updateCounter if statement to run every frame, but only update graphics every n frames
             //RunAirSim();
             airBuffer.GetData(outputData);
@@ -79,7 +77,8 @@ public class AirSimulation : MonoBehaviour {
         {
             outputDeltaData[i] = 0;
         }
-
+        
+        //neighbor checking
         int _x = 0;
         int _y = 0;
         int _z = 0;
@@ -140,6 +139,7 @@ public class AirSimulation : MonoBehaviour {
             }
         }
         //Debug.Log(neighbsWithZero + " " + nodesWithNeighbs);
+        
         SetOutsideBorder();
 
         //make output array
@@ -181,14 +181,16 @@ public class AirSimulation : MonoBehaviour {
         visualMaterial.SetBuffer("airBuffer", visualBuffer);
 
         //idk other vis stuff
+        /*
         uint indexCountPerInstance = (uint)4;
         uint instanceCount = (uint)numNodes;
         uint startIndexLocation = 0;
         uint baseVertexLocation = 0;
         uint startInstanceLocation = 0;
         uint[] args = new uint[] { indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation };
-        bufferWithArgs = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
+        bufferWithArgs = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.Append);
         bufferWithArgs.SetData(args);
+        */
     }
 
     bool sum = false;
@@ -212,6 +214,7 @@ public class AirSimulation : MonoBehaviour {
     {
         visualMaterial.SetPass(0);
         Graphics.DrawProcedural(MeshTopology.Points, numNodes);
+        //Graphics.DrawProceduralIndirect(MeshTopology.Points, bufferWithArgs, 0);
     }
 
     int Flatten3DIndex(int x, int y, int z)
@@ -223,17 +226,26 @@ public class AirSimulation : MonoBehaviour {
     {
         //such hack much smart
         //xy borders
-        ChangeTransferabilityPlaneXY(0, 95, 0, 95, 30, 0.0f);
-        ChangeTransferabilityPlaneXY(0, 95, 0, 95, 64, 0.0f);
+        ChangeTransferabilityPlaneXY(29, 65, 29, 65, 30, 0.0f);
+        ChangeTransferabilityPlaneXY(29, 65, 29, 65, 64, 0.0f);
 
         //xz borders
-        ChangeTransferabilityPlaneXZ(0, 95, 0, 95, 30, 0.0f);
-        ChangeTransferabilityPlaneXZ(0, 95, 0, 95, 64, 0.0f);
+        ChangeTransferabilityPlaneXZ(29, 65, 29, 65, 30, 0.0f);
+        ChangeTransferabilityPlaneXZ(29, 65, 29, 65, 64, 0.0f);
 
         //yz borders
-        ChangeTransferabilityPlaneYZ(0, 95, 0, 95, 30, 0.0f);
-        ChangeTransferabilityPlaneYZ(0, 95, 0, 95, 64, 0.0f);
+        ChangeTransferabilityPlaneYZ(29, 65, 29, 65, 30, 0.0f);
+        ChangeTransferabilityPlaneYZ(29, 65, 29, 65, 64, 0.0f);
+
+        ChangeTransferabilityPlaneYZ(63, 64, 63, 64, 30, 1);
     }
+
+    void OpenHoleInBorder()
+    {
+        ChangeTransferabilityPlaneXZ(46, 47, 46, 47, 30, 1.0f);
+        transferBuffer.SetData(transferability);
+    }
+
     void ChangeTransferabilityPlaneXY(int _xStart, int _xEnd, int _yStart, int _yEnd, int _zPlane, float newValue)
     {
         for(int x = _xStart; x <= _xEnd; x++)
@@ -290,6 +302,11 @@ public class AirSimulation : MonoBehaviour {
         RunAirSim();
     }
 
+    public void OpenHole()
+    {
+        OpenHoleInBorder();
+    }
+
     void OnDestroy()
     {
         visualBuffer.Release();
@@ -297,6 +314,6 @@ public class AirSimulation : MonoBehaviour {
         airDeltaBuffer.Release();
         neighborBuffer.Release();
         transferBuffer.Release();
-        bufferWithArgs.Release();
+        //bufferWithArgs.Release();
     }
 }

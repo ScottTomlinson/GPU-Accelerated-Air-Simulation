@@ -11,6 +11,7 @@ public class AirTests : MonoBehaviour {
     public float testAmount;
     public Vector3[] testPoints;
     private int testIndex = 0;
+
 	// Use this for initialization
 	void Start () {
         airSim = this.gameObject.transform.GetComponent<AirSimulation>();
@@ -26,9 +27,9 @@ public class AirTests : MonoBehaviour {
         {
             CheckAirLevels();
         }
-        if (GUI.Button(new Rect(10, 90, 100, 30), "Dispatch"))
+        if (GUI.Button(new Rect(10, 90, 100, 30), "Open Hole"))
         {
-            airSim.DispatchSim();
+            airSim.OpenHole();
         }
     }
 

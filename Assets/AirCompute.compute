@@ -41,9 +41,6 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
     int _selfZ = (tid.z * 12) + gid.z;
     int _selfIndex = _selfX + (_selfY * width) + (_selfZ * depth * width);
 
-    float _curAir = 0;
-    _curAir += airBuffer[_selfIndex];
-
     //declare variables for use in the for loops
     float3 _min = { 0, 0, 0 };
     float3 _max = { width - 1, height - 1, depth - 1 };
@@ -76,12 +73,6 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
                 GroupMemoryBarrierWithGroupSync();
                 //balance airBuffer value with selected neighbor node
                 BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
-                //_curAir -= AltBalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier, _curAir);
-                
-                //float difference = _curAir - airBuffer[_otherIndex];
-                //difference = (_availabilityMultiplier * transferabilityBuffer[_otherIndex] * transferabilityBuffer[_selfIndex] * difference) / (neighborCount[_selfIndex] * 2);
-                //deltas[_selfIndex] -= difference;
-                //_curAir -= difference;
             }
         }
     }
@@ -91,7 +82,6 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
 void AirDeltaSum(uint3 id : SV_DispatchThreadID)
 {
     int _selfIndex = id.x + (id.z * width) + (id.y * depth * width);
-    //deltas[_selfIndex] *= transferabilityBuffer[_selfIndex];
     airBuffer[_selfIndex] += deltas[_selfIndex];
     deltas[_selfIndex] = 0;
 }
