@@ -73,13 +73,15 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
                 //but having an index in place avoids array errors
                 int _otherIndex = _x + (_z * width) + (_y * depth * width);
 
+                GroupMemoryBarrierWithGroupSync();
                 //balance airBuffer value with selected neighbor node
-                //BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
+                BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
                 //_curAir -= AltBalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier, _curAir);
-                float difference = _curAir - airBuffer[_otherIndex];
-                difference = (_availabilityMultiplier * transferabilityBuffer[_otherIndex] * transferabilityBuffer[_selfIndex] * difference) / (neighborCount[_selfIndex] * 2);
-                deltas[_selfIndex] -= difference;
-                _curAir -= difference;
+                
+                //float difference = _curAir - airBuffer[_otherIndex];
+                //difference = (_availabilityMultiplier * transferabilityBuffer[_otherIndex] * transferabilityBuffer[_selfIndex] * difference) / (neighborCount[_selfIndex] * 2);
+                //deltas[_selfIndex] -= difference;
+                //_curAir -= difference;
             }
         }
     }
