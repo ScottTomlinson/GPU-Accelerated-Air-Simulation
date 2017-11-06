@@ -30,7 +30,7 @@ Shader "Custom/AirVisualizer" {
 	};
 
 	// Particle's data, shared with the compute shader
-	StructuredBuffer<float> airBuffer;
+	StructuredBuffer<float> airVisBuffer;
 
 	// Properties variables
 	uniform float4 _ColorLow;
@@ -44,13 +44,13 @@ Shader "Custom/AirVisualizer" {
 		float3 _size = { 96,96,96 };
 
 		// Color
-		float value = length(airBuffer[vertex_id]);
+		float value = length(airVisBuffer[instance_id]);
 		float lerpValue = clamp(value / _HighPressureValue, 0.0f, 1.0f);
 		o.color = lerp(_ColorLow, _ColorHigh, lerpValue);
 
 		// Position
 		//1D index to 3D array http://stackoverflow.com/questions/11316490/convert-a-1d-array-index-to-a-3d-array-index
-		o.position = float4(vertex_id % _size.x, vertex_id / (_size.z * _size.x), (vertex_id / 96) % 96, 1);;
+		o.position = float4(instance_id % _size.x, instance_id / (_size.z * _size.x), (instance_id / 96) % 96, 1);
 
 		return o;
 	}

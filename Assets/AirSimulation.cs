@@ -8,6 +8,8 @@ using UnityEngine;
 public class AirSimulation : MonoBehaviour {
 
     public ComputeShader airShader;
+    public Mesh visualMesh;
+    public Bounds visualBounds;
     public Material visualMaterial;
     [Tooltip("Number of basic cubes to be built along each axis in the compute shader, each basic cube is 8x8x8 nodes")]
     public int cubeSize = 12;
@@ -46,6 +48,11 @@ public class AirSimulation : MonoBehaviour {
         SetupAirSim();
     }
     
+    void LateUpdate()
+    {
+        Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
+    }
+
 	// Update is called once per frame
 	void FixedUpdate ()
     {
@@ -57,7 +64,7 @@ public class AirSimulation : MonoBehaviour {
             //RunAirSim();
             airBuffer.GetData(outputData);
             inputData = outputData;
-            visualBuffer.SetData(inputData);
+            //visualBuffer.SetData(inputData);
             updateCounter = 0;
         }
     }
@@ -140,7 +147,7 @@ public class AirSimulation : MonoBehaviour {
         }
         //Debug.Log(neighbsWithZero + " " + nodesWithNeighbs);
         
-        SetOutsideBorder();
+        //SetOutsideBorder();
 
         //make output array
         outputData = new float[numNodes];
@@ -178,19 +185,19 @@ public class AirSimulation : MonoBehaviour {
         //visual stuff
         visualBuffer = new ComputeBuffer(numNodes, sizeof(float));
         visualBuffer.SetData(inputData);
-        visualMaterial.SetBuffer("airBuffer", visualBuffer);
+        visualMaterial.SetBuffer("airVisBuffer", airBuffer);
+        
 
-        //idk other vis stuff
-        /*
-        uint indexCountPerInstance = (uint)4;
+        //indirect renderer from jknightdoeswork
+        uint indexCountPerInstance = visualMesh.GetIndexCount(0);
         uint instanceCount = (uint)numNodes;
         uint startIndexLocation = 0;
         uint baseVertexLocation = 0;
         uint startInstanceLocation = 0;
         uint[] args = new uint[] { indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation };
-        bufferWithArgs = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.Append);
+        bufferWithArgs = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         bufferWithArgs.SetData(args);
-        */
+        
     }
 
     bool sum = false;
@@ -212,9 +219,9 @@ public class AirSimulation : MonoBehaviour {
 
     void OnRenderObject()
     {
-        visualMaterial.SetPass(0);
-        Graphics.DrawProcedural(MeshTopology.Points, numNodes);
-        //Graphics.DrawProceduralIndirect(MeshTopology.Points, bufferWithArgs, 0);
+        //visualMaterial.SetPass(0);
+        //Graphics.DrawProcedural(MeshTopology.Points, numNodes);
+        //Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
     }
 
     int Flatten3DIndex(int x, int y, int z)
@@ -314,6 +321,6 @@ public class AirSimulation : MonoBehaviour {
         airDeltaBuffer.Release();
         neighborBuffer.Release();
         transferBuffer.Release();
-        //bufferWithArgs.Release();
+        bufferWithArgs.Release();
     }
 }
