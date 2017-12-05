@@ -10,6 +10,7 @@ RWStructuredBuffer<float> deltas;
 RWStructuredBuffer<int> neighborCount;
 int numNodes;
 
+
 int width;
 int height;
 int depth;
@@ -44,6 +45,9 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
     //declare variables for use in the for loops
     float3 _min = { 0, 0, 0 };
     float3 _max = { width - 1, height - 1, depth - 1 };
+    
+    //first level
+    int z = -1;
     [loop]
     for (int x = -1; x <= 1; x++)
     {
@@ -69,14 +73,18 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
                 //set the index data for the "neighbor" node -- not actually the neighbor if out of bounds
                 //but having an index in place avoids array errors
                 int _otherIndex = _x + (_z * width) + (_y * depth * width);
+                
 
+                GroupMemoryBarrierWithGroupSync();
                 //balance airBuffer value with selected neighbor node
                 //BalanceNodes(_selfIndex, _otherIndex, _availabilityMultiplier);
                 float difference = airBuffer[_selfIndex] - airBuffer[_otherIndex];
                 difference = (_availabilityMultiplier * transferabilityBuffer[_otherIndex] * transferabilityBuffer[_selfIndex] * difference) / 2;
+                float diffTwo = difference;
                 airBuffer[_selfIndex] -= difference;
+                //AllMemoryBarrierWithGroupSync();
                 GroupMemoryBarrierWithGroupSync();
-                airBuffer[_otherIndex] += difference;
+                airBuffer[_otherIndex] += diffTwo;
             }
         }
     }
@@ -86,6 +94,5 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
 void AirDeltaSum(uint3 id : SV_DispatchThreadID)
 {
     int _selfIndex = id.x + (id.z * width) + (id.y * depth * width);
-    airBuffer[_selfIndex] += deltas[_selfIndex];
-    deltas[_selfIndex] = 0;
+    
 }

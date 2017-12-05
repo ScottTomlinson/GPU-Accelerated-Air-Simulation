@@ -34,9 +34,11 @@ public class AirSimulation : MonoBehaviour {
     public int getDataInterval = 10;
     private int updateCounter = 0;
 
+    private float massCounter = 0;
+
     void OnAwake()
     {
-        Application.targetFrameRate = 120;
+        //Application.targetFrameRate = 240;
     }
 
     // Use this for initialization
@@ -60,7 +62,7 @@ public class AirSimulation : MonoBehaviour {
         updateCounter++;
         if(updateCounter > getDataInterval)
         {
-            //move RunAirSim() to outside of  updateCounter if statement to run every frame, but only update graphics every n frames
+            //move RunAirSim() to outside of  updateCounter if statement to run every frame, but only pull data every n frames
             //RunAirSim();
             airBuffer.GetData(outputData);
             inputData = outputData;
@@ -77,7 +79,7 @@ public class AirSimulation : MonoBehaviour {
         transferability = new float[numNodes];
         for(int i = 0; i < transferability.Length; i++)
         {
-            transferability[i] = 1;
+            transferability[i] = 1.00f;
         }
         outputDeltaData = new float[numNodes];
         for (int i = 0; i < outputDeltaData.Length; i++)
@@ -197,7 +199,6 @@ public class AirSimulation : MonoBehaviour {
         uint[] args = new uint[] { indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation };
         bufferWithArgs = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         bufferWithArgs.SetData(args);
-        
     }
 
     bool sum = false;
@@ -243,13 +244,12 @@ public class AirSimulation : MonoBehaviour {
         //yz borders
         ChangeTransferabilityPlaneYZ(29, 65, 29, 65, 30, 0.0f);
         ChangeTransferabilityPlaneYZ(29, 65, 29, 65, 64, 0.0f);
-
-        ChangeTransferabilityPlaneYZ(63, 64, 63, 64, 30, 1);
     }
 
     void OpenHoleInBorder()
     {
-        ChangeTransferabilityPlaneXZ(46, 47, 46, 47, 30, 1.0f);
+        //ChangeTransferabilityPlaneXZ(45, 48, 45, 48, 30, 1.0f);
+        ChangeTransferabilityPlaneXY(45, 48, 45, 48, 30, 1.00f);
         transferBuffer.SetData(transferability);
     }
 
@@ -290,11 +290,12 @@ public class AirSimulation : MonoBehaviour {
     public void AddAirAtPoint(int x, int y, int z, float value)
     {
         inputData[Flatten3DIndex(x, y, z)] += value;
+        massCounter += value;
         airBuffer.SetData(inputData);
-        Debug.Log("Air Inserted -> Amount Added: " + value + " Total Volume: " + GetTotalVolume());
+        //Debug.Log("Air Inserted -> Amount Added: " + value + " Total Mass: " + GetTotalMass());
     }
 
-    public float GetTotalVolume()
+    public float GetTotalMass()
     {
         float val = 0;
         for (int i = 0; i < numNodes; i++)
@@ -303,7 +304,10 @@ public class AirSimulation : MonoBehaviour {
         }
         return val;
     }
-
+    public float GetAddedMass()
+    {
+        return massCounter;
+    }
     public void DispatchSim()
     {
         RunAirSim();

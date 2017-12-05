@@ -11,6 +11,8 @@ public class AirTests : MonoBehaviour {
     public float testAmount;
     public Vector3[] testPoints;
     private int testIndex = 0;
+    private string userInput = "";
+    private string testOutput = "Test Output Data Here";
 
 	// Use this for initialization
 	void Start () {
@@ -19,27 +21,45 @@ public class AirTests : MonoBehaviour {
 	
     void OnGUI()
     {
-        if (GUI.Button(new Rect(10, 10, 100, 30), "Insert Air"))
+        if (GUI.Button(new Rect(10, 50, 100, 30), "Insert Air"))
         {
-            AddAirToTestPoint();
+            //AddAirToTestPoint();
+            AddAirToRandomtestPoints();
         }
-        if(GUI.Button(new Rect(10,50,100,30), "Check Levels"))
+        if(GUI.Button(new Rect(10,90,100,30), "Check Levels"))
         {
             CheckAirLevels();
         }
+        /*
         if (GUI.Button(new Rect(10, 90, 100, 30), "Open Hole"))
         {
             airSim.OpenHole();
         }
+        */
+        userInput = GUI.TextField(new Rect(10, 10, 400, 30), testOutput, 100);
     }
 
     void CheckAirLevels()
     {
-        Debug.Log(airSim.GetTotalVolume());
+        float tMass = airSim.GetTotalMass();
+        float aMass = airSim.GetAddedMass();
+        float e = (aMass - tMass) / aMass * -10000;
+        e = Mathf.RoundToInt(e);
+        e /= 100;
+        testOutput = "Current Mass: " + tMass + " -- Added Mass: " + aMass + " -- Error: " + e + "%";
+        Debug.Log(testOutput);
     }
 
     void AddAirToTestPoint()
     {
         airSim.AddAirAtPoint((int)testPoints[testIndex].x, (int)testPoints[testIndex].y, (int)testPoints[testIndex].z, testAmount);
+    }
+
+    void AddAirToRandomtestPoints()
+    {
+        for (int i = 0; i < 10; i++)
+        {
+            airSim.AddAirAtPoint(RNG.Ints(0, 96), RNG.Ints(0, 96), RNG.Ints(0, 96), RNG.Floats(0, 1) * testAmount);
+        }
     }
 }
