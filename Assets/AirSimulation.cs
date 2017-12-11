@@ -11,6 +11,7 @@ public class AirSimulation : MonoBehaviour {
     public Mesh visualMesh;
     public Bounds visualBounds;
     public Material visualMaterial;
+    public Bounds[] rooms;
     [Tooltip("Number of basic cubes to be built along each axis in the compute shader, each basic cube is 8x8x8 nodes")]
     public int cubeSize = 12;
     private int basicCubeSize = 512;
@@ -36,13 +37,16 @@ public class AirSimulation : MonoBehaviour {
 
     private float massCounter = 0;
 
+    public bool setWalls = false;
+    public bool runContinuously = false;
+    public bool visualActive = false;
     void OnAwake()
     {
         //Application.targetFrameRate = 240;
     }
 
-    // Use this for initialization
-    void Start ()
+    // Use this for pre-initialization
+    void OnEnable ()
     {
         numNodes = (int)Mathf.Pow((float)cubeSize, 3f);
         numNodes *= basicCubeSize;
@@ -52,13 +56,19 @@ public class AirSimulation : MonoBehaviour {
     
     void LateUpdate()
     {
-        Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
+        if (visualActive)
+        {
+            Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
+        }
     }
 
-	// Update is called once per frame
+	// FixedUpdate is called once per physics frame
 	void FixedUpdate ()
     {
-        RunAirSim();
+        if (runContinuously)
+        {
+            RunAirSim();
+        }
         updateCounter++;
         if(updateCounter > getDataInterval)
         {
@@ -76,11 +86,19 @@ public class AirSimulation : MonoBehaviour {
         //make input array
         inputData = new float[numNodes];
 
+        //make transfer array
         transferability = new float[numNodes];
         for(int i = 0; i < transferability.Length; i++)
         {
             transferability[i] = 1.00f;
         }
+        //if setting up test ship hit the checkbox in editor
+        if (setWalls)
+        {
+            //MakeShip();
+            Debug.Log("setWalls deprecated us UI button");
+        }
+
         outputDeltaData = new float[numNodes];
         for (int i = 0; i < outputDeltaData.Length; i++)
         {
@@ -148,8 +166,7 @@ public class AirSimulation : MonoBehaviour {
             }
         }
         //Debug.Log(neighbsWithZero + " " + nodesWithNeighbs);
-        
-        //SetOutsideBorder();
+
 
         //make output array
         outputData = new float[numNodes];
@@ -161,8 +178,10 @@ public class AirSimulation : MonoBehaviour {
         //make buffers and set inputs
         airBuffer = new ComputeBuffer(numNodes, sizeof(float));
         airBuffer.SetData(inputData);
+
         transferBuffer = new ComputeBuffer(numNodes, sizeof(float));
         transferBuffer.SetData(transferability);
+
         airDeltaBuffer = new ComputeBuffer(numNodes, sizeof(float));
         airDeltaBuffer.SetData(outputDeltaData);
 
@@ -204,8 +223,8 @@ public class AirSimulation : MonoBehaviour {
     bool sum = false;
     void RunAirSim()
     {
-        //airShader.Dispatch(kernalOne, cubeSize, cubeSize, cubeSize);
-        
+        airShader.Dispatch(kernalOne, cubeSize, cubeSize, cubeSize);
+        /*
         if (sum)
         {
             airShader.Dispatch(kernalOne, cubeSize, cubeSize, cubeSize);
@@ -215,44 +234,46 @@ public class AirSimulation : MonoBehaviour {
             airShader.Dispatch(kernalTwo, cubeSize, cubeSize, cubeSize);
         }
         sum = !sum;
-        
+        */
     }
-
-    void OnRenderObject()
-    {
-        //visualMaterial.SetPass(0);
-        //Graphics.DrawProcedural(MeshTopology.Points, numNodes);
-        //Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
-    }
-
+    
     int Flatten3DIndex(int x, int y, int z)
     {
         return x + (z * 96) + (y * 96 * 96);
     }
 
-    void SetOutsideBorder()
+    public void Build()
     {
-        //such hack much smart
-        //xy borders
-        ChangeTransferabilityPlaneXY(29, 65, 29, 65, 30, 0.0f);
-        ChangeTransferabilityPlaneXY(29, 65, 29, 65, 64, 0.0f);
-
-        //xz borders
-        ChangeTransferabilityPlaneXZ(29, 65, 29, 65, 30, 0.0f);
-        ChangeTransferabilityPlaneXZ(29, 65, 29, 65, 64, 0.0f);
-
-        //yz borders
-        ChangeTransferabilityPlaneYZ(29, 65, 29, 65, 30, 0.0f);
-        ChangeTransferabilityPlaneYZ(29, 65, 29, 65, 64, 0.0f);
+        MakeShip();
     }
-
-    void OpenHoleInBorder()
+    void MakeShip()
     {
-        //ChangeTransferabilityPlaneXZ(45, 48, 45, 48, 30, 1.0f);
-        ChangeTransferabilityPlaneXY(45, 48, 45, 48, 30, 1.00f);
+        //1st room - works
+        MakeRoom(40, 54, 40, 54, 40, 54);
+        //2nd room hallway in -x direction from 1st room - works
+        MakeRoom(2, 12, 42, 54, 42, 52);
+        //3rd room hallway in +x direction - works
+        MakeRoom(54, 74, 42, 47, 42, 47);
+        //4th room - doesn't work regardless of where you put it
+        MakeRoom(40, 50, 5, 15, 10, 25);
+        //open door in 1st room walls
+        //ChangeTransferabilityPlaneYZ(45, 46, 45, 46, 40, 1.0f);
+        //ChangeTransferabilityPlaneYZ(45, 46, 45, 46, 54, 1.0f);
         transferBuffer.SetData(transferability);
-    }
 
+    }
+    void MakeRoom(int _xStart, int _xEnd, int _yStart, int _yEnd, int _zStart, int _zEnd)
+    {
+        //xz borders - top and bottom
+        ChangeTransferabilityPlaneXZ(_xStart, _xEnd, _zStart, _zEnd, _yStart, 0.0f);
+        ChangeTransferabilityPlaneXZ(_xStart, _xEnd, _zStart, _zEnd, _yEnd, 0.0f);
+        //xy border - sides
+        ChangeTransferabilityPlaneXY(_xStart, _xEnd, _yStart, _yEnd, _zStart, 0.0f);
+        ChangeTransferabilityPlaneXY(_xStart, _xEnd, _yStart, _yEnd, _zEnd, 0.0f);
+        //yz borders-frant and back
+        ChangeTransferabilityPlaneYZ(_yStart, _yEnd, _zStart, _zEnd, _xStart, 0.0f);
+        ChangeTransferabilityPlaneYZ(_yStart, _yEnd, _zStart, _zEnd, _xEnd, 0.0f);
+    }
     void ChangeTransferabilityPlaneXY(int _xStart, int _xEnd, int _yStart, int _yEnd, int _zPlane, float newValue)
     {
         for(int x = _xStart; x <= _xEnd; x++)
@@ -313,10 +334,6 @@ public class AirSimulation : MonoBehaviour {
         RunAirSim();
     }
 
-    public void OpenHole()
-    {
-        OpenHoleInBorder();
-    }
 
     void OnDestroy()
     {

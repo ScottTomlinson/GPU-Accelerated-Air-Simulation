@@ -23,19 +23,21 @@ public class AirTests : MonoBehaviour {
     {
         if (GUI.Button(new Rect(10, 50, 100, 30), "Insert Air"))
         {
-            //AddAirToTestPoint();
-            AddAirToRandomtestPoints();
+            AddAirToTestPoint();
+            //AddAirToRandomtestPoints();
         }
         if(GUI.Button(new Rect(10,90,100,30), "Check Levels"))
         {
             CheckAirLevels();
         }
-        /*
-        if (GUI.Button(new Rect(10, 90, 100, 30), "Open Hole"))
+        if (GUI.Button(new Rect(10, 170, 100, 30), "Dispatch"))
         {
-            airSim.OpenHole();
+            airSim.DispatchSim();
         }
-        */
+        if (GUI.Button(new Rect(10, 210, 100, 30), "Build"))
+        {
+            airSim.Build();
+        }
         userInput = GUI.TextField(new Rect(10, 10, 400, 30), testOutput, 100);
     }
 
@@ -53,6 +55,11 @@ public class AirTests : MonoBehaviour {
     void AddAirToTestPoint()
     {
         airSim.AddAirAtPoint((int)testPoints[testIndex].x, (int)testPoints[testIndex].y, (int)testPoints[testIndex].z, testAmount);
+        testIndex++;
+        if(testIndex >= testPoints.Length)
+        {
+            testIndex = 0;
+        }
     }
 
     void AddAirToRandomtestPoints()
