@@ -29,7 +29,7 @@ Shader "Custom/AirVisualizer" {
 		float4 color : COLOR;
 	};
 
-	// Particle's data, shared with the compute shader
+	// node's data, shared with the compute shader
 	StructuredBuffer<float> airVisBuffer;
 
 	// Properties variables
@@ -56,7 +56,7 @@ Shader "Custom/AirVisualizer" {
 	}
 
 	//geometry shader
-	[maxvertexcount(4)]
+	[maxvertexcount(6)]
 	void geom(point PS_INPUT input[1], inout TriangleStream<PS_INPUT> outputStream) {
 		PS_INPUT output;
 		float4 position = input[0].position;
@@ -80,6 +80,7 @@ Shader "Custom/AirVisualizer" {
 
 		ENDCG
 	}
+
 	}
 
 		Fallback Off

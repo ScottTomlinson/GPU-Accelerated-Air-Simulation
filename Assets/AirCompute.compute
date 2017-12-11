@@ -17,14 +17,14 @@ int depth;
 
 int IndexNum(int _x, int _y, int _z)
 {
-    int index = _x + (_y * width) + (_z * depth * width);
+    //3D position to 1D array index = x + (y * maxX) + (z * maxX * maxY) from http://stackoverflow.com/questions/26162501/how-do-you-flatten-a-3d-array
+    int index = _x + (_y * width) + (_z * height * width);
     return index;
 }
 //basic cube of threads
 [numthreads(BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT)]
 void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 tid : SV_GroupThreadID)
 {
-    //3D position to 1D array index = x + (y * maxX) + (z * maxX * maxY) from http://stackoverflow.com/questions/26162501/how-do-you-flatten-a-3d-array
     int _selfX = (tid.x * 12) + gid.x;
     //int _selfX = id.x;
     int _selfY = (tid.y * 12) + gid.y;
@@ -32,17 +32,16 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
     int _selfZ = (tid.z * 12) + gid.z;
     //int _selfZ = id.z;
     int _selfIndex = IndexNum(_selfX, _selfY, _selfZ);
-    //int _selfIndex = _selfX + (_selfY * width) + (_selfZ * depth * width);
 
     //declare variables for use in the for loops
     
-    //balancing with only 6 neighbors, +/- x,y,z
-    int x1 = clamp(_selfX - 1, 0, 96);
-    int x2 = clamp(_selfX + 1, 0, 96);
-    int y1 = clamp(_selfY - 1, 0, 96);
-    int y2 = clamp(_selfY + 1, 0, 96);
-    int z1 = clamp(_selfZ - 1, 0, 96);
-    int z2 = clamp(_selfZ + 1, 0, 96);
+    //balancing with only 6 neighbors, +/- x,y,z    --  bad data races
+    int x1 = clamp(_selfX - 1, 0, 95);
+    int x2 = clamp(_selfX + 1, 0, 95);
+    int y1 = clamp(_selfY - 1, 0, 95);
+    int y2 = clamp(_selfY + 1, 0, 95);
+    int z1 = clamp(_selfZ - 1, 0, 95);
+    int z2 = clamp(_selfZ + 1, 0, 95);
     int indexes[6] = {
         IndexNum(x1, _selfY, _selfZ), //first neighbor-x
         IndexNum(x2, _selfY, _selfZ), //2nd neighbor +x
@@ -63,7 +62,7 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
 
 
 
-    //full 26 neighbor balancing, everyone touching
+    //full 26 neighbor balancing, everyone touching -- doesn't work :/
     /*
     [loop]
     for (int x = -1; x <= 1; x++)

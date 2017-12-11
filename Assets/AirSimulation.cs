@@ -36,8 +36,7 @@ public class AirSimulation : MonoBehaviour {
     private int updateCounter = 0;
 
     private float massCounter = 0;
-
-    public bool setWalls = false;
+    
     public bool runContinuously = false;
     public bool visualActive = false;
     void OnAwake()
@@ -56,10 +55,7 @@ public class AirSimulation : MonoBehaviour {
     
     void LateUpdate()
     {
-        if (visualActive)
-        {
-            Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
-        }
+        Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
     }
 
 	// FixedUpdate is called once per physics frame
@@ -91,12 +87,6 @@ public class AirSimulation : MonoBehaviour {
         for(int i = 0; i < transferability.Length; i++)
         {
             transferability[i] = 1.00f;
-        }
-        //if setting up test ship hit the checkbox in editor
-        if (setWalls)
-        {
-            //MakeShip();
-            Debug.Log("setWalls deprecated us UI button");
         }
 
         outputDeltaData = new float[numNodes];
@@ -219,12 +209,11 @@ public class AirSimulation : MonoBehaviour {
         bufferWithArgs = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         bufferWithArgs.SetData(args);
     }
-
-    bool sum = false;
+    
     void RunAirSim()
     {
         airShader.Dispatch(kernalOne, cubeSize, cubeSize, cubeSize);
-        /*
+        /* just use a command buffer jeez
         if (sum)
         {
             airShader.Dispatch(kernalOne, cubeSize, cubeSize, cubeSize);
@@ -250,15 +239,21 @@ public class AirSimulation : MonoBehaviour {
     {
         //1st room - works
         MakeRoom(40, 54, 40, 54, 40, 54);
-        //2nd room hallway in -x direction from 1st room - works
-        MakeRoom(2, 12, 42, 54, 42, 52);
-        //3rd room hallway in +x direction - works
-        MakeRoom(54, 74, 42, 47, 42, 47);
-        //4th room - doesn't work regardless of where you put it
-        MakeRoom(40, 50, 5, 15, 10, 25);
+        //2nd room hallway in -x direction from 1st room
+        MakeRoom(20, 40, 43, 47, 43, 47);
         //open door in 1st room walls
-        //ChangeTransferabilityPlaneYZ(45, 46, 45, 46, 40, 1.0f);
-        //ChangeTransferabilityPlaneYZ(45, 46, 45, 46, 54, 1.0f);
+        ChangeTransferabilityPlaneYZ(44, 46, 44, 46, 40, 1.0f);
+        //3rd room hallway in +x direction
+        MakeRoom(54, 74, 43, 47, 43, 47);
+        //other door in 1st room
+        ChangeTransferabilityPlaneYZ(44, 46, 44, 46, 54, 1.0f);
+        //rooms
+        MakeRoom(74, 84, 5, 80, 40, 50);
+        ChangeTransferabilityPlaneYZ(44, 46, 44, 46, 74, 1.0f);
+        MakeRoom(16, 20, 43, 47, 43, 63);
+        ChangeTransferabilityPlaneYZ(44, 46, 44, 46, 20, 1.0f);
+        MakeRoom(16, 60, 42, 48, 63, 73);
+        ChangeTransferabilityPlaneXY(17, 19, 44, 46, 63, 1.0f);
         transferBuffer.SetData(transferability);
 
     }
