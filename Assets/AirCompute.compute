@@ -15,6 +15,11 @@ int width;
 int height;
 int depth;
 
+int IndexNum(int _x, int _y, int _z)
+{
+    int index = _x + (_y * width) + (_z * depth * width);
+    return index;
+}
 //basic cube of threads
 [numthreads(BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT, BASIC_CUBE_SIZE_THREAD_COUNT)]
 void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 tid : SV_GroupThreadID)
@@ -26,12 +31,40 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
     //int _selfY = id.y;
     int _selfZ = (tid.z * 12) + gid.z;
     //int _selfZ = id.z;
-    int _selfIndex = _selfX + (_selfY * width) + (_selfZ * depth * width);
+    int _selfIndex = IndexNum(_selfX, _selfY, _selfZ);
+    //int _selfIndex = _selfX + (_selfY * width) + (_selfZ * depth * width);
 
     //declare variables for use in the for loops
     
-    //first level
-    int z = -1;
+    //balancing with only 6 neighbors, +/- x,y,z
+    int x1 = clamp(_selfX - 1, 0, 96);
+    int x2 = clamp(_selfX + 1, 0, 96);
+    int y1 = clamp(_selfY - 1, 0, 96);
+    int y2 = clamp(_selfY + 1, 0, 96);
+    int z1 = clamp(_selfZ - 1, 0, 96);
+    int z2 = clamp(_selfZ + 1, 0, 96);
+    int indexes[6] = {
+        IndexNum(x1, _selfY, _selfZ), //first neighbor-x
+        IndexNum(x2, _selfY, _selfZ), //2nd neighbor +x
+        IndexNum(_selfX, y1, _selfZ), //3rd neightbor -y
+        IndexNum(_selfX, y2, _selfZ), //4th neight +y
+        IndexNum(_selfX, _selfY, z1), //5th neighbor -z
+        IndexNum(_selfX, _selfY, z2) //6th neighbor +z
+    };
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference = airBuffer[_selfIndex] - airBuffer[indexes[i]];
+        difference = (transferabilityBuffer[indexes[i]] * transferabilityBuffer[_selfIndex] * difference) / 2;
+        airBuffer[_selfIndex] -= difference;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[indexes[i]] += difference;
+    }
+
+
+
+    //full 26 neighbor balancing, everyone touching
+    /*
     [loop]
     for (int x = -1; x <= 1; x++)
     {
@@ -75,6 +108,7 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
             }
         }
     }
+    */
 }
 
 [numthreads(BASIC_CUBE_SIZE_THREAD_COUNT,BASIC_CUBE_SIZE_THREAD_COUNT,BASIC_CUBE_SIZE_THREAD_COUNT)]
@@ -83,3 +117,4 @@ void AirDeltaSum(uint3 id : SV_DispatchThreadID)
     int _selfIndex = id.x + (id.z * width) + (id.y * depth * width);
     
 }
+
