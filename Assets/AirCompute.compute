@@ -2,7 +2,15 @@
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel AirConstituentBalance
-#pragma kernel AirDeltaSum
+#pragma kernel FirstPass
+#pragma kernel SecondPass
+#pragma kernel ThirdPass
+#pragma kernel FourthPass
+#pragma kernel FifthPass
+#pragma kernel SixthPass
+#pragma kernel SeventhPass
+#pragma kernel EighthPass
+#pragma kernel NinthPass
 
 RWStructuredBuffer<float> airBuffer;
 RWStructuredBuffer<float> transferabilityBuffer;
@@ -33,9 +41,9 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
     //int _selfZ = id.z;
     int _selfIndex = IndexNum(_selfX, _selfY, _selfZ);
 
-    //declare variables for use in the for loops
+    //declare variables for use in the for loop
     
-    //balancing with only 6 neighbors, +/- x,y,z    --  bad data races
+    //balancing with only 6 neighbors, +/- x,y,z    --  bad data races?
     int x1 = clamp(_selfX - 1, 0, 95);
     int x2 = clamp(_selfX + 1, 0, 95);
     int y1 = clamp(_selfY - 1, 0, 95);
@@ -50,70 +58,877 @@ void AirConstituentBalance(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupI
         IndexNum(_selfX, _selfY, z1), //5th neighbor -z
         IndexNum(_selfX, _selfY, z2) //6th neighbor +z
     };
+
     [loop]
     for (int i = 0; i < 6; i++)
     {
         float difference = airBuffer[_selfIndex] - airBuffer[indexes[i]];
         difference = (transferabilityBuffer[indexes[i]] * transferabilityBuffer[_selfIndex] * difference) / 2;
+        GroupMemoryBarrierWithGroupSync();
         airBuffer[_selfIndex] -= difference;
         GroupMemoryBarrierWithGroupSync();
         airBuffer[indexes[i]] += difference;
     }
-
-
-
-    //full 26 neighbor balancing, everyone touching -- doesn't work :/
-    /*
-    [loop]
-    for (int x = -1; x <= 1; x++)
-    {
-        [loop]
-        for (int y = -1; y <= 1; y++)
-        {
-            [loop]
-            for (int z = -1; z <= 1; z++)
-            {
-                float3 _min = { 0, 0, 0 };
-                float3 _max = { width - 1, height - 1, depth - 1 };
-
-                int posX = _selfX + x;
-                int posZ = _selfZ + z;
-                int posY = _selfY + y;
-
-                //returns 0 if actual neighbor position is outside of overall boundaries, 1 if inside
-                float3 _curPos = { posX, posZ, posY };
-                float3 _check = (step(_min, _curPos) * step(_curPos, _max));
-                float _availabilityMultiplier = _check.x * _check.y * _check.z;
-
-                //clamp to within overall boundaries to avoid array index errors in airBuffer
-                int _x = clamp(posX, _min.x, _max.x);
-                int _y = clamp(posY, _min.y, _max.y);
-                int _z = clamp(posZ, _min.z, _max.z);
-
-                //set the index data for the "neighbor" node -- not actually the neighbor if out of bounds
-                //but having an index in place avoids array errors
-                int _otherIndex = _x + (_z * width) + (_y * depth * width);
-                
-
-                GroupMemoryBarrierWithGroupSync();
-                //balance airBuffer value with selected neighbor node
-                float difference = airBuffer[_selfIndex] - airBuffer[_otherIndex];
-                difference = (_availabilityMultiplier * transferabilityBuffer[_otherIndex] * transferabilityBuffer[_selfIndex] * difference) / 2;
-                float diffTwo = difference;
-                airBuffer[_selfIndex] -= difference;
-                //AllMemoryBarrierWithGroupSync();
-                GroupMemoryBarrierWithGroupSync();
-                airBuffer[_otherIndex] += diffTwo;
-            }
-        }
-    }
-    */
 }
 
-[numthreads(BASIC_CUBE_SIZE_THREAD_COUNT,BASIC_CUBE_SIZE_THREAD_COUNT,BASIC_CUBE_SIZE_THREAD_COUNT)]
-void AirDeltaSum(uint3 id : SV_DispatchThreadID)
+//new basic cube of threads, 3 nodes per pass, 9 passes total, no one ever touches in each pass so no data races?
+//:)
+//no more data races!
+//new problems!
+//air getting trapped in walls!
+//...
+//?!
+[numthreads(1,1,1)]
+void FirstPass(uint3 id : SV_DispatchThreadID)
 {
-    int _selfIndex = id.x + (id.z * width) + (id.y * depth * width);
+    //node 0  0,0,0  0
+    //node 1  1,1,1  13
+    //node 2  2,2,2  26
+
+    //first node and neighbors
+    int node0X = id.x * 3;
+    int node0Y = id.y * 3;
+    int node0Z = id.z * 3;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01)  //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X + 1;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z + 1;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X + 2;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z + 2;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
     
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+}
+
+[numthreads(1,1,1)]
+void SecondPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  1,0,0  1
+    //node 1  2,1,1  14
+    //node 2  0,2,2  24
+
+    //first node and neighbors
+    int node0X = (id.x * 3) + 1;
+    int node0Y = id.y * 3;
+    int node0Z = id.z * 3;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X + 1;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z + 1;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X -1;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z + 2;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
+}
+
+[numthreads(1,1,1)]
+void ThirdPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  2,0,0  2
+    //node 1  0,1,1  12
+    //node 2  1,2,2  25
+
+    //first node and neighbors
+    int node0X = (id.x * 3) + 2;
+    int node0Y = id.y * 3;
+    int node0Z = id.z * 3;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X - 2;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z + 1;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X - 1;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z + 2;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
+}
+
+[numthreads(1,1,1)]
+void FourthPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  0,0,1  3
+    //node 1  1,1,2  16
+    //node 2  2,2,0  20
+
+    //first node and neighbors
+    int node0X = id.x * 3;
+    int node0Y = id.y * 3;
+    int node0Z = (id.z * 3) + 1;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X + 1;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z + 1;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X + 2;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z - 1;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
+}
+
+[numthreads(1, 1, 1)]
+void FifthPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  1,0,1  4
+    //node 1  2,1,2  17
+    //node 2  0,2,0  18
+
+    //first node and neighbors
+    int node0X = (id.x * 3) + 1;
+    int node0Y = id.y * 3;
+    int node0Z = (id.z * 3) + 1;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X + 1;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z + 1;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X - 1;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z - 1;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
+}
+
+[numthreads(1, 1, 1)]
+void SixthPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  2,0,1  5
+    //node 1  0,1,2  15
+    //node 2  1,2,0  19
+
+    //first node and neighbors
+    int node0X = (id.x * 3) + 2;
+    int node0Y = id.y * 3;
+    int node0Z = (id.z * 3) + 1;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X - 2;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z + 1;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X - 1;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z - 1;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
+}
+
+[numthreads(1, 1, 1)]
+void SeventhPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  0,0,2  6
+    //node 1  1,1,0  10
+    //node 2  2,2,1  23
+
+    //first node and neighbors
+    int node0X = id.x * 3;
+    int node0Y = id.y * 3;
+    int node0Z = (id.z * 3) + 2;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X + 1;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z - 2;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X + 2;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z - 1;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
+}
+
+[numthreads(1, 1, 1)]
+void EighthPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  1,0,2  7
+    //node 1  2,1,0  11
+    //node 2  0,2,1  21
+
+    //first node and neighbors
+    int node0X = (id.x * 3) + 1;
+    int node0Y = id.y * 3;
+    int node0Z = (id.z * 3) + 2;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X + 1;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z - 2;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X - 1;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z - 1;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
+}
+
+[numthreads(1, 1, 1)]
+void NinthPass(uint3 id : SV_DispatchThreadID)
+{
+    //node 0  2,0,2  8
+    //node 1  0,1,0  9
+    //node 2  1,2,1  22
+
+    //first node and neighbors
+    int node0X = (id.x * 3) + 2;
+    int node0Y = id.y * 3;
+    int node0Z = (id.z * 3) + 2;
+    int node0 = IndexNum(node0X, node0Y, node0Z);
+    int x00 = clamp((node0X - 1), 0, 95);
+    int x01 = clamp((node0X + 1), 0, 95);
+    int y00 = clamp((node0Y - 1), 0, 95);
+    int y01 = clamp((node0Y + 1), 0, 95);
+    int z00 = clamp((node0Z - 1), 0, 95);
+    int z01 = clamp((node0Z + 1), 0, 95);
+    int indexes0[6] =
+    {
+        IndexNum(x00, node0Y, node0Z), //1st neighbor -x
+        IndexNum(x01, node0Y, node0Z), //2nd neighbor +x
+        IndexNum(node0X, y00, node0Z), //3rd neighbor -y
+        IndexNum(node0X, y01, node0Z), //4th neighbor +y
+        IndexNum(node0X, node0Y, z00), //5th neighbor -z
+        IndexNum(node0X, node0Y, z01) //6th neighbor +z        
+    };
+
+    //second node and neighbors
+    int node1X = node0X - 2;
+    int node1Y = node0Y + 1;
+    int node1Z = node0Z - 2;
+    int node1 = IndexNum(node1X, node1Y, node1Z);
+    int x10 = clamp((node1X - 1), 0, 95);
+    int x11 = clamp((node1X + 1), 0, 95);
+    int y10 = clamp((node1Y - 1), 0, 95);
+    int y11 = clamp((node1Y + 1), 0, 95);
+    int z10 = clamp((node1Z - 1), 0, 95);
+    int z11 = clamp((node1Z + 1), 0, 95);
+    int indexes1[6] =
+    {
+        IndexNum(x10, node1Y, node1Z), //1st neighbor -x
+        IndexNum(x11, node1Y, node1Z), //2nd neighbor +x
+        IndexNum(node1X, y10, node1Z), //3rd neighbor -y
+        IndexNum(node1X, y11, node1Z), //4th neighbor +y
+        IndexNum(node1X, node1Y, z10), //5th neighbor -z
+        IndexNum(node1X, node1Y, z11) //6th neighbor +z        
+    };
+
+    //third node and neighbors
+    int node2X = node0X - 1;
+    int node2Y = node0Y + 2;
+    int node2Z = node0Z - 1;
+    int node2 = IndexNum(node2X, node2Y, node2Z);
+    int x20 = clamp((node2X - 1), 0, 95);
+    int x21 = clamp((node2X + 1), 0, 95);
+    int y20 = clamp((node2Y - 1), 0, 95);
+    int y21 = clamp((node2Y + 1), 0, 95);
+    int z20 = clamp((node2Z - 1), 0, 95);
+    int z21 = clamp((node2Z + 1), 0, 95);
+    int indexes2[6] =
+    {
+        IndexNum(x20, node2Y, node0Z), //1st neighbor -x
+        IndexNum(x21, node2Y, node0Z), //2nd neighbor +x
+        IndexNum(node2X, y20, node0Z), //3rd neighbor -y
+        IndexNum(node2X, y21, node0Z), //4th neighbor +y
+        IndexNum(node2X, node2Y, z20), //5th neighbor -z
+        IndexNum(node2X, node2Y, z21) //6th neighbor +z        
+    };
+    
+    //3 nodes balancing with neighbors
+    [loop]
+    for (int i = 0; i < 6; i++)
+    {
+        float difference0 = (airBuffer[node0] * transferabilityBuffer[node0]) - (airBuffer[indexes0[i]] * transferabilityBuffer[indexes0[i]]);
+        difference0 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node0] -= difference0;
+        airBuffer[indexes0[i]] += difference0;
+        
+        float difference1 = (airBuffer[node1] * transferabilityBuffer[node1]) - (airBuffer[indexes1[i]] * transferabilityBuffer[indexes1[i]]);
+        difference1 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node1] -= difference1;
+        airBuffer[indexes1[i]] += difference1;
+        
+        float difference2 = (airBuffer[node2] * transferabilityBuffer[node2]) - (airBuffer[indexes2[i]] * transferabilityBuffer[indexes2[i]]);
+        difference2 /= 2;
+        GroupMemoryBarrierWithGroupSync();
+        airBuffer[node2] -= difference2;
+        airBuffer[indexes2[i]] += difference2;
+    }
+
 }
 

@@ -31,8 +31,8 @@ public class CamControl : MonoBehaviour {
 	void Start () {
         cam = GameObject.Find("Main Camera").GetComponent<Camera>();
         //altCam = GameObject.Find("AltCamera").GetComponent<Camera>();
-        rotator = transform.FindChild("CameraRotator").gameObject;
-        zoomer = rotator.transform.FindChild("CameraLifter").gameObject;
+        rotator = transform.Find("CameraRotator").gameObject;
+        zoomer = rotator.transform.Find("CameraLifter").gameObject;
         moveDir = new Vector2(0f, 0f);
         rotDir = new Vector2(0f, 0f);
     }
