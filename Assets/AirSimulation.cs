@@ -293,6 +293,8 @@ public class AirSimulation : MonoBehaviour {
     {
         //1st room - works
         MakeRoom(40, 54, 40, 54, 40, 54);
+        //MakeRoom(39, 55, 39, 55, 39, 55);
+        
         //2nd room hallway in -x direction from 1st room
         MakeRoom(20, 40, 43, 47, 43, 47);
         //open door in 1st room walls
@@ -309,7 +311,7 @@ public class AirSimulation : MonoBehaviour {
         ChangeTransferabilityPlaneYZ(44, 46, 44, 46, 20, 1.0f);
         MakeRoom(16, 60, 42, 48, 63, 73);
         ChangeTransferabilityPlaneXY(17, 19, 44, 46, 63, 1.0f);
-
+        
         transferBuffer.SetData(transferability);
     }
     void MakeRoom(int _xStart, int _xEnd, int _yStart, int _yEnd, int _zStart, int _zEnd)
@@ -356,6 +358,19 @@ public class AirSimulation : MonoBehaviour {
                 transferability[index] = newValue;
             }
         }
+    }
+
+    public void Unbuild()
+    {
+        ResetTransferability();
+    }
+    void ResetTransferability()
+    {
+        for(int i = 0; i < numNodes; i++)
+        {
+            transferability[i] = 1.000f;
+        }
+        transferBuffer.SetData(transferability);
     }
 
     public void AddAirAtPoint(int x, int y, int z, float value)

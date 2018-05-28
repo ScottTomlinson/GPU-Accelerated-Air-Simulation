@@ -38,6 +38,10 @@ public class AirTests : MonoBehaviour {
         {
             airSim.Build();
         }
+        if (GUI.Button(new Rect(10, 250, 100, 30), "Unbuild"))
+        {
+            airSim.Unbuild();
+        }
         userInput = GUI.TextField(new Rect(10, 10, 400, 30), testOutput, 100);
     }
 
