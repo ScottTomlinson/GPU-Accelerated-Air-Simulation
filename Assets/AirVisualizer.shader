@@ -1,10 +1,9 @@
-﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-Shader "Custom/AirVisualizer" {
+﻿Shader "Custom/AirVisualizer" {
 	Properties
 	{
 		_ColorLow("Color Slow Speed", Color) = (0, 0, 0.5, 0.1)
 		_ColorHigh("Color High Speed", Color) = (1, 0, 0, 0.8)
+		_Texture("Texture", 2D) = "defaulttexture" {}
 		_HighPressureValue("High Pressure Value", Range(0, 50)) = 50
 	}
 
@@ -22,6 +21,10 @@ Shader "Custom/AirVisualizer" {
 
 #include "UnityCG.cginc"
 
+int height;
+int width;
+int depth;
+
 	// Pixel shader input
 	struct PS_INPUT
 	{
@@ -36,21 +39,22 @@ Shader "Custom/AirVisualizer" {
 	uniform float4 _ColorLow;
 	uniform float4 _ColorHigh;
 	uniform float _HighPressureValue;
+	uniform sampler2D _MainTex;	
 
 	// Vertex shader
 	PS_INPUT vert(uint vertex_id : SV_VertexID, uint instance_id : SV_InstanceID)
 	{
 		PS_INPUT o = (PS_INPUT)0;
-		float3 _size = { 96,96,96 };
+		float3 _size = { depth, width, height };
 
 		// Color
 		float value = length(airVisBuffer[instance_id]);
 		float lerpValue = clamp(value / _HighPressureValue, 0.0f, 1.0f);
 		o.color = lerp(_ColorLow, _ColorHigh, lerpValue);
-
+		
 		// Position
 		//1D index to 3D array http://stackoverflow.com/questions/11316490/convert-a-1d-array-index-to-a-3d-array-index
-		o.position = float4(instance_id % _size.x, instance_id / (_size.z * _size.x), (instance_id / 96) % 96, 1);
+		o.position = float4(instance_id % _size.x, instance_id / (_size.z * _size.x), (instance_id / width) % depth, 1);
 
 		return o;
 	}

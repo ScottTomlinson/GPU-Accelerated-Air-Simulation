@@ -14,6 +14,8 @@ public class AirTests : MonoBehaviour {
     private string userInput = "";
     private string testOutput = "Test Output Data Here";
 
+    
+
 	// Use this for initialization
 	void Start () {
         airSim = this.gameObject.transform.GetComponent<AirSimulation>();
@@ -52,7 +54,7 @@ public class AirTests : MonoBehaviour {
         float e = (aMass - tMass) / aMass * -10000;
         e = Mathf.RoundToInt(e);
         e /= 100;
-        testOutput = "Current Mass: " + tMass + " -- Added Mass: " + aMass + " -- Error: " + e + "%";
+        testOutput = "Current Mass: " + tMass + "  |  Added Mass: " + aMass + "  |  Error: " + e + "%";
         Debug.Log(testOutput);
     }
 

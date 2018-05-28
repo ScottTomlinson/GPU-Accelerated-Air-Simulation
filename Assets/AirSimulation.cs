@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 
 [RequireComponent(typeof(ParticleSystem))]
@@ -12,16 +13,17 @@ public class AirSimulation : MonoBehaviour {
     public Bounds visualBounds;
     public Material visualMaterial;
     public Bounds[] rooms;
-    [Tooltip("Number of basic cubes to be built along each axis in the compute shader, each basic cube is 8x8x8 nodes")]
-    public int cubeSize = 12;
-    //number of nodes in one basic cube (8x8x8)
-    private int basicCubeSize = 512;
+    [Tooltip("Number of basic cubes to be built along each axis in the compute shader, each basic cube is 3x3x3 nodes")]
+    public int cubeSize = 32;
+    //number of nodes in one basic cube (3x3x3)
+    private int basicCubeSize = 27;
     private int numNodes;
+    private int sideLength;
     private ComputeBuffer airBuffer;
-    private ComputeBuffer neighborBuffer;
     private ComputeBuffer visualBuffer;
     private ComputeBuffer transferBuffer;
     private ComputeBuffer bufferWithArgs;
+    private CommandBuffer commandBuffer;
 
     private float[] inputData;
     private float[] outputData;
@@ -39,7 +41,7 @@ public class AirSimulation : MonoBehaviour {
     private int kernalEight = 0;
     private int kernalNine = 0;
 
-    [Tooltip("Number of frames to skip between GPU data transfers")]
+    [Tooltip("Number of frames to skip between dispatches")]
     public int getDataInterval = 10;
     private int updateCounter = 0;
 
@@ -47,10 +49,6 @@ public class AirSimulation : MonoBehaviour {
     
     public bool runContinuously = false;
     public bool visualActive = false;
-    void OnAwake()
-    {
-        //Application.targetFrameRate = 240;
-    }
 
     // Use this for pre-initialization
     void OnEnable ()
@@ -58,16 +56,10 @@ public class AirSimulation : MonoBehaviour {
         numNodes = (int)Mathf.Pow((float)cubeSize, 3f);
         numNodes *= basicCubeSize;
         Debug.Log(numNodes + " nodes");
+        sideLength = 3 * cubeSize;
         SetupAirSim();
     }
     
-    void LateUpdate()
-    {
-        //Graphics.DrawProceduralIndirect(MeshTopology.Quads, bufferWithArgs);
-        Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
-    }
-
-
 	// FixedUpdate is called once per physics frame
 	void FixedUpdate ()
     {
@@ -87,6 +79,14 @@ public class AirSimulation : MonoBehaviour {
         }
     }
 
+    void LateUpdate()
+    {
+        if (visualActive)
+        {
+            Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
+        }
+    }
+
     void SetupAirSim()
     {
         //make input array
@@ -98,75 +98,6 @@ public class AirSimulation : MonoBehaviour {
         {
             transferability[i] = 1.00f;
         }
-
-        outputDeltaData = new float[numNodes];
-        for (int i = 0; i < outputDeltaData.Length; i++)
-        {
-            outputDeltaData[i] = 0;
-        }
-        
-        //neighbor checking
-        int _x = 0;
-        int _y = 0;
-        int _z = 0;
-        int neighbsWithZero = 0;
-        int nodesWithNeighbs = 0;
-        neighborCounts = new int[numNodes];
-        for(int i = 0; i < neighborCounts.Length; i++)
-        {
-            int count = 0;
-            for(int x = -1; x <= 1; x++)
-            {
-                int checkX = x + _x;
-                if (checkX >= 0 && checkX <= 96)
-                {
-                    for (int z = -1; z <= 1; z++)
-                    {
-                        int checkZ = z + _z;
-                        if (checkZ >= 0 && checkZ <= 96)
-                        {
-                            for (int y = -1; y <= 1; y++)
-                            {
-                                int checkY = y + _y;
-                                if (checkY >= 0 && checkY <= 96)
-                                {
-                                    count++;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            neighborCounts[i] = count;
-            if(neighborCounts[i] <= 0)
-            {
-                neighborCounts[i] = 1;
-                neighbsWithZero++;
-            }
-            else
-            {
-                nodesWithNeighbs++;
-            }
-
-            _x++;
-            if(_x > 95)
-            {
-                _x = 0;
-                _z++;
-                if(_z > 95)
-                {
-                    _z = 0;
-                    _y++;
-                    if(_y > 95)
-                    {
-                        _y = 0;
-                    }
-                }
-            }
-        }
-        //Debug.Log(neighbsWithZero + " " + nodesWithNeighbs);
-
 
         //make output array
         outputData = new float[numNodes];
@@ -189,14 +120,20 @@ public class AirSimulation : MonoBehaviour {
         transferBuffer = new ComputeBuffer(numNodes, sizeof(float));
         transferBuffer.SetData(transferability);
 
-        neighborBuffer = new ComputeBuffer(numNodes, sizeof(int));
-        neighborBuffer.SetData(neighborCounts);
-
         //tell the compute shader important info
         airShader.SetInt("numNodes", numNodes);
-        airShader.SetInt("width", 8 * cubeSize);
-        airShader.SetInt("height", 8 * cubeSize);
-        airShader.SetInt("depth", 8 * cubeSize);
+        airShader.SetInt("width", sideLength);
+        airShader.SetInt("height", sideLength);
+        airShader.SetInt("depth", sideLength);
+
+        //tell visual shader important info
+        visualMaterial.SetInt("width", sideLength);
+        visualMaterial.SetInt("height", sideLength);
+        visualMaterial.SetInt("depth", sideLength);
+        Vector3 _extents = new Vector3(sideLength, sideLength, sideLength);
+        Vector3 _center = _extents / 2;
+        visualBounds.center = _center;
+        visualBounds.extents = _extents;
 
         //set the RWStructuredBuffer in the compute shader to match up with our airBuffer here
         airShader.SetBuffer(kernalOne, "airBuffer", airBuffer);
@@ -217,9 +154,45 @@ public class AirSimulation : MonoBehaviour {
         airShader.SetBuffer(kernalSeven, "transferabilityBuffer", transferBuffer);
         airShader.SetBuffer(kernalEight, "transferabilityBuffer", transferBuffer);
         airShader.SetBuffer(kernalNine, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalOne, "neighborCount", neighborBuffer);
 
-        //airShader.Dispatch(kernalTwo, 32, 32, 32);
+        //command buffer
+        commandBuffer = new CommandBuffer();
+
+        commandBuffer.BeginSample("First Pass");
+        commandBuffer.DispatchCompute(airShader, kernalOne, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("First Pass");
+
+        commandBuffer.BeginSample("Second Pass");
+        commandBuffer.DispatchCompute(airShader, kernalTwo, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Second Pass");
+
+        commandBuffer.BeginSample("Third Pass");
+        commandBuffer.DispatchCompute(airShader, kernalThree, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Third Pass");
+
+        commandBuffer.BeginSample("Fourth Pass");
+        commandBuffer.DispatchCompute(airShader, kernalFour, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Fourth Pass");
+
+        commandBuffer.BeginSample("Fifth Pass");
+        commandBuffer.DispatchCompute(airShader, kernalFive, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Fifth Pass");
+
+        commandBuffer.BeginSample("Sixth Pass");
+        commandBuffer.DispatchCompute(airShader, kernalSix, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Sixth Pass");
+
+        commandBuffer.BeginSample("Seventh Pass");
+        commandBuffer.DispatchCompute(airShader, kernalSeven, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Seventh Pass");
+
+        commandBuffer.BeginSample("Eighth Pass");
+        commandBuffer.DispatchCompute(airShader, kernalEight, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Eighth Pass");
+
+        commandBuffer.BeginSample("Ninth Pass");
+        commandBuffer.DispatchCompute(airShader, kernalNine, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Ninth Pass");
 
         //visual stuff
         visualBuffer = new ComputeBuffer(numNodes, sizeof(float));
@@ -237,47 +210,10 @@ public class AirSimulation : MonoBehaviour {
         bufferWithArgs = new ComputeBuffer(1, args.Length * sizeof(uint), ComputeBufferType.IndirectArguments);
         bufferWithArgs.SetData(args);
     }
-
-    int passCount = 0;
+    
     void RunAirSim()
     {
-        airShader.Dispatch(kernalTwo, 32, 32, 32);
-        switch (passCount)
-        {
-            case 0:
-                airShader.Dispatch(kernalOne, 32, 32, 32);
-                break;
-            case 1:
-                airShader.Dispatch(kernalTwo, 32, 32, 32);
-                break;
-            case 2:
-                airShader.Dispatch(kernalThree, 32, 32, 32);
-                break;
-            case 3:
-                airShader.Dispatch(kernalFour, 32, 32, 32);
-                break;
-            case 4:
-                airShader.Dispatch(kernalFive, 32, 32, 32);
-                break;
-            case 5:
-                airShader.Dispatch(kernalSix, 32, 32, 32);
-                break;
-            case 6:
-                airShader.Dispatch(kernalSeven, 32, 32, 32);
-                break;
-            case 7:
-                airShader.Dispatch(kernalEight, 32, 32, 32);
-                break;
-            case 8:
-                airShader.Dispatch(kernalNine, 32, 32, 32);
-                break;
-        }
-        passCount++;
-        if(passCount > 8)
-        {
-            passCount = 0;
-        }
-        //airShader.Dispatch(kernalOne, cubeSize, cubeSize, cubeSize);
+        Graphics.ExecuteCommandBuffer(commandBuffer);
     }
     
     int Flatten3DIndex(int x, int y, int z)
@@ -407,7 +343,6 @@ public class AirSimulation : MonoBehaviour {
     {
         visualBuffer.Release();
         airBuffer.Release();
-        neighborBuffer.Release();
         transferBuffer.Release();
         bufferWithArgs.Release();
     }

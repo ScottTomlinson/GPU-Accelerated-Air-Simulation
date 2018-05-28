@@ -14,8 +14,7 @@
 
 RWStructuredBuffer<float> airBuffer;
 RWStructuredBuffer<float> transferabilityBuffer;
-RWStructuredBuffer<float> deltas;
-RWStructuredBuffer<int> neighborCount;
+
 int numNodes;
 
 int width;
