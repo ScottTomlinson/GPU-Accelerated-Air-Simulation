@@ -2,9 +2,11 @@
 
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel Balance
+#pragma kernel ChangeDelta
 
 RWStructuredBuffer<float> airBuffer;
 RWStructuredBuffer<float> transferabilityBuffer;
+RWStructuredBuffer<int> curDeltaBuffer;
 
 int numNodes;
 
@@ -21,6 +23,18 @@ int IndexNum(int _x, int _y, int _z)
     int index = _x + (_y * width) + (_z * height * width);
     return index;
 }
+
+[numthreads(1,1,1)]
+void ChangeDelta()
+{
+    curDeltaBuffer[0]++;
+    [branch]
+    if (curDeltaBuffer[0] >= 9)
+    {
+        curDeltaBuffer[0] = 0;
+    }
+}
+
 //1 pass balancing with CPU pushing RNG to curDeltaChoice
 [numthreads(1,1,1)]
 void Balance(uint3 id : SV_DispatchThreadID)
@@ -61,18 +75,18 @@ void Balance(uint3 id : SV_DispatchThreadID)
     int3(-1, 2, -1),
     int3(-1, 2, -1),
     };
-     
+
     //first node and neighbors
-    int node0X = (id.x * 3) + deltas[curDeltaChoice].x;
-    int node0Y = (id.y * 3) + deltas[curDeltaChoice].y;
-    int node0Z = (id.z * 3) + deltas[curDeltaChoice].z;
+    int node0X = (id.x * 3) + deltas[curDeltaBuffer[0]].x;
+    int node0Y = (id.y * 3) + deltas[curDeltaBuffer[0]].y;
+    int node0Z = (id.z * 3) + deltas[curDeltaBuffer[0]].z;
     int node0 = IndexNum(node0X, node0Y, node0Z);
-    int x00 = clamp((node0X - 1), 0, 95);
-    int x01 = clamp((node0X + 1), 0, 95);
-    int y00 = clamp((node0Y - 1), 0, 95);
-    int y01 = clamp((node0Y + 1), 0, 95);
-    int z00 = clamp((node0Z - 1), 0, 95);
-    int z01 = clamp((node0Z + 1), 0, 95);
+    int x00 = clamp((node0X - 1), 0, width - 1);
+    int x01 = clamp((node0X + 1), 0, width - 1);
+    int y00 = clamp((node0Y - 1), 0, height - 1);
+    int y01 = clamp((node0Y + 1), 0, height - 1);
+    int z00 = clamp((node0Z - 1), 0, depth - 1);
+    int z01 = clamp((node0Z + 1), 0, depth - 1);
     int indexes0[6] =
     {
         IndexNum(x00, node0Y, node0Z), //1st neighbor -x
@@ -84,16 +98,16 @@ void Balance(uint3 id : SV_DispatchThreadID)
     };
 
     //second node and neighbors
-    int node1X = node0X + deltasOne[curDeltaChoice].x;
-    int node1Y = node0Y + deltasOne[curDeltaChoice].y;
-    int node1Z = node0Z + deltasOne[curDeltaChoice].z;
+    int node1X = node0X + deltasOne[curDeltaBuffer[0]].x;
+    int node1Y = node0Y + deltasOne[curDeltaBuffer[0]].y;
+    int node1Z = node0Z + deltasOne[curDeltaBuffer[0]].z;
     int node1 = IndexNum(node1X, node1Y, node1Z);
-    int x10 = clamp((node1X - 1), 0, 95);
-    int x11 = clamp((node1X + 1), 0, 95);
-    int y10 = clamp((node1Y - 1), 0, 95);
-    int y11 = clamp((node1Y + 1), 0, 95);
-    int z10 = clamp((node1Z - 1), 0, 95);
-    int z11 = clamp((node1Z + 1), 0, 95);
+    int x10 = clamp((node1X - 1), 0, width - 1);
+    int x11 = clamp((node1X + 1), 0, width - 1);
+    int y10 = clamp((node1Y - 1), 0, height - 1);
+    int y11 = clamp((node1Y + 1), 0, height - 1);
+    int z10 = clamp((node1Z - 1), 0, depth - 1);
+    int z11 = clamp((node1Z + 1), 0, depth - 1);
     int indexes1[6] =
     {
         IndexNum(x10, node1Y, node1Z), //1st neighbor -x
@@ -105,16 +119,16 @@ void Balance(uint3 id : SV_DispatchThreadID)
     };
 
     //third node and neighbors
-    int node2X = node0X + deltasTwo[curDeltaChoice].x;
-    int node2Y = node0Y + deltasTwo[curDeltaChoice].y;
-    int node2Z = node0Z + deltasTwo[curDeltaChoice].z;
+    int node2X = node0X + deltasTwo[curDeltaBuffer[0]].x;
+    int node2Y = node0Y + deltasTwo[curDeltaBuffer[0]].y;
+    int node2Z = node0Z + deltasTwo[curDeltaBuffer[0]].z;
     int node2 = IndexNum(node2X, node2Y, node2Z);
-    int x20 = clamp((node2X - 1), 0, 95);
-    int x21 = clamp((node2X + 1), 0, 95);
-    int y20 = clamp((node2Y - 1), 0, 95);
-    int y21 = clamp((node2Y + 1), 0, 95);
-    int z20 = clamp((node2Z - 1), 0, 95);
-    int z21 = clamp((node2Z + 1), 0, 95);
+    int x20 = clamp((node2X - 1), 0, width - 1);
+    int x21 = clamp((node2X + 1), 0, width - 1);
+    int y20 = clamp((node2Y - 1), 0, height - 1);
+    int y21 = clamp((node2Y + 1), 0, height - 1);
+    int z20 = clamp((node2Z - 1), 0, depth - 1);
+    int z21 = clamp((node2Z + 1), 0, depth - 1);
     int indexes2[6] =
     {
         IndexNum(x20, node2Y, node2Z), //1st neighbor -x

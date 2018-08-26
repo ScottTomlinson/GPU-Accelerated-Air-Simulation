@@ -19,9 +19,11 @@ public class AirSimulation : MonoBehaviour {
     private int basicCubeSize = 27;
     private int numNodes;
     private int sideLength;
+
     private ComputeBuffer airBuffer;
     private ComputeBuffer visualBuffer;
     private ComputeBuffer transferBuffer;
+    private ComputeBuffer curPassBuffer;
     private ComputeBuffer bufferWithArgs;
     private CommandBuffer commandBuffer;
 
@@ -29,10 +31,9 @@ public class AirSimulation : MonoBehaviour {
     private float[] outputData;
     private float[] outputDeltaData;
     private float[] transferability;
-    private int[] neighborCounts;
    
     private int kernalBalance = 0;
-    private int randomPass = 0;
+    private int kernalChangeDelta = 0;
 
     private float massCounter = 0;
     
@@ -52,13 +53,6 @@ public class AirSimulation : MonoBehaviour {
     private void Update()
     {
         RunAirSim();
-    }
-
-    // FixedUpdate is called once per physics frame
-    void FixedUpdate ()
-    {
-        randomPass = RNG.Ints(0,9);
-        airShader.SetInt("curDeltaChoice", randomPass);
     }
 
     void LateUpdate()
@@ -85,7 +79,7 @@ public class AirSimulation : MonoBehaviour {
         outputData = new float[numNodes];
 
         kernalBalance = airShader.FindKernel("Balance");
-
+        kernalChangeDelta = airShader.FindKernel("ChangeDelta");
         
         //make buffers and set inputs
         airBuffer = new ComputeBuffer(numNodes, sizeof(float));
@@ -93,6 +87,10 @@ public class AirSimulation : MonoBehaviour {
 
         transferBuffer = new ComputeBuffer(numNodes, sizeof(float));
         transferBuffer.SetData(transferability);
+
+        int[] yes = new int[] { 0 };
+        curPassBuffer = new ComputeBuffer(1, sizeof(int));
+        curPassBuffer.SetData(yes);
 
         //tell the compute shader important info
         airShader.SetInt("numNodes", numNodes);
@@ -112,9 +110,15 @@ public class AirSimulation : MonoBehaviour {
         //set the RWStructuredBuffer in the compute shader to match up with our airBuffer here
         airShader.SetBuffer(kernalBalance, "airBuffer", airBuffer);
         airShader.SetBuffer(kernalBalance, "transferabilityBuffer", transferBuffer);
+        airShader.SetBuffer(kernalBalance, "curDeltaBuffer", curPassBuffer);
+        airShader.SetBuffer(kernalChangeDelta, "curDeltaBuffer", curPassBuffer);
 
         //command buffer
         commandBuffer = new CommandBuffer();
+
+        commandBuffer.BeginSample("Change Delta");
+        commandBuffer.DispatchCompute(airShader, kernalChangeDelta, 1, 1, 1);
+        commandBuffer.EndSample("Change Delta");
 
         commandBuffer.BeginSample("Balance");
         commandBuffer.DispatchCompute(airShader, kernalBalance, cubeSize, cubeSize, cubeSize);
@@ -151,6 +155,7 @@ public class AirSimulation : MonoBehaviour {
     {
         MakeShip();
     }
+
     void MakeShip()
     {
         //1st room - works
@@ -271,5 +276,6 @@ public class AirSimulation : MonoBehaviour {
         airBuffer.Release();
         transferBuffer.Release();
         bufferWithArgs.Release();
+        curPassBuffer.Release();
     }
 }

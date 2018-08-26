@@ -55,7 +55,7 @@ public class AirTests : MonoBehaviour {
         e = Mathf.RoundToInt(e);
         e /= 100;
         testOutput = "Current Mass: " + tMass + "  |  Added Mass: " + aMass + "  |  Error: " + e + "%";
-        Debug.Log(testOutput);
+        //Debug.Log(testOutput);
     }
 
     void AddAirToTestPoint()
