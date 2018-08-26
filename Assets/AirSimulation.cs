@@ -11,7 +11,7 @@ public class AirSimulation : MonoBehaviour {
     public ComputeShader airShader;
     public Mesh visualMesh;
     public Bounds visualBounds;
-    public Material visualMaterial;
+    public Material[] visualMaterial;
     public Bounds[] rooms;
     [Tooltip("Number of basic cubes to be built along each axis in the compute shader, each basic cube is 3x3x3 nodes")]
     public int cubeSize = 32;
@@ -19,8 +19,11 @@ public class AirSimulation : MonoBehaviour {
     private int basicCubeSize = 27;
     private int numNodes;
     private int sideLength;
+    private int numConnections;
 
     private ComputeBuffer airBuffer;
+    private ComputeBuffer oldAirBuffer;
+    private ComputeBuffer movementBuffer;
     private ComputeBuffer visualBuffer;
     private ComputeBuffer transferBuffer;
     private ComputeBuffer curPassBuffer;
@@ -34,11 +37,14 @@ public class AirSimulation : MonoBehaviour {
    
     private int kernalBalance = 0;
     private int kernalChangeDelta = 0;
+    private int kernalMovement = 0;
 
     private float massCounter = 0;
     
     public bool runContinuously = false;
     public bool visualActive = false;
+
+    private int visualChoice = 0;
     
     // Use this for pre-initialization
     void OnEnable ()
@@ -47,6 +53,8 @@ public class AirSimulation : MonoBehaviour {
         numNodes *= basicCubeSize;
         Debug.Log(numNodes + " nodes");
         sideLength = 3 * cubeSize;
+        numConnections = 3 * (sideLength - 1) * (int)Mathf.Pow((float)sideLength, 2f);
+        Debug.Log(numConnections + " connections");
         SetupAirSim();
     }
 
@@ -59,7 +67,7 @@ public class AirSimulation : MonoBehaviour {
     {
         if (visualActive)
         {
-            Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial, visualBounds, bufferWithArgs);
+            Graphics.DrawMeshInstancedIndirect(visualMesh, 0, visualMaterial[visualChoice], visualBounds, bufferWithArgs);
         }
     }
 
@@ -80,10 +88,17 @@ public class AirSimulation : MonoBehaviour {
 
         kernalBalance = airShader.FindKernel("Balance");
         kernalChangeDelta = airShader.FindKernel("ChangeDelta");
+        kernalMovement = airShader.FindKernel("Movement");
         
         //make buffers and set inputs
         airBuffer = new ComputeBuffer(numNodes, sizeof(float));
         airBuffer.SetData(inputData);
+
+        oldAirBuffer = new ComputeBuffer(numNodes, sizeof(float));
+        oldAirBuffer.SetData(inputData);
+
+        movementBuffer = new ComputeBuffer(numNodes, sizeof(float));
+        movementBuffer.SetData(inputData);
 
         transferBuffer = new ComputeBuffer(numNodes, sizeof(float));
         transferBuffer.SetData(transferability);
@@ -99,9 +114,13 @@ public class AirSimulation : MonoBehaviour {
         airShader.SetInt("depth", sideLength);
 
         //tell visual shader important info
-        visualMaterial.SetInt("width", sideLength);
-        visualMaterial.SetInt("height", sideLength);
-        visualMaterial.SetInt("depth", sideLength);
+        visualMaterial[0].SetInt("width", sideLength);
+        visualMaterial[0].SetInt("height", sideLength);
+        visualMaterial[0].SetInt("depth", sideLength);
+        visualMaterial[1].SetInt("width", sideLength);
+        visualMaterial[1].SetInt("height", sideLength);
+        visualMaterial[1].SetInt("depth", sideLength);
+
         Vector3 _extents = new Vector3(sideLength, sideLength, sideLength);
         Vector3 _center = _extents / 2;
         visualBounds.center = _center;
@@ -109,9 +128,14 @@ public class AirSimulation : MonoBehaviour {
 
         //set the RWStructuredBuffer in the compute shader to match up with our airBuffer here
         airShader.SetBuffer(kernalBalance, "airBuffer", airBuffer);
+        airShader.SetBuffer(kernalBalance, "oldAirBuffer", oldAirBuffer);
         airShader.SetBuffer(kernalBalance, "transferabilityBuffer", transferBuffer);
         airShader.SetBuffer(kernalBalance, "curDeltaBuffer", curPassBuffer);
         airShader.SetBuffer(kernalChangeDelta, "curDeltaBuffer", curPassBuffer);
+        airShader.SetBuffer(kernalMovement, "curDeltaBuffer", curPassBuffer);
+        airShader.SetBuffer(kernalMovement, "airBuffer", airBuffer);
+        airShader.SetBuffer(kernalMovement, "oldAirBuffer", oldAirBuffer);
+        airShader.SetBuffer(kernalMovement, "movementBuffer", movementBuffer);
 
         //command buffer
         commandBuffer = new CommandBuffer();
@@ -124,11 +148,16 @@ public class AirSimulation : MonoBehaviour {
         commandBuffer.DispatchCompute(airShader, kernalBalance, cubeSize, cubeSize, cubeSize);
         commandBuffer.EndSample("Balance");
 
+        commandBuffer.BeginSample("Movement");
+        commandBuffer.DispatchCompute(airShader, kernalMovement, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Movement");
+
         //visual stuff
         visualBuffer = new ComputeBuffer(numNodes, sizeof(float));
         visualBuffer.SetData(inputData);
-        visualMaterial.SetBuffer("airVisBuffer", airBuffer);
-        
+        visualMaterial[0].SetBuffer("airVisBuffer", airBuffer);
+        visualMaterial[1].SetBuffer("movementBuffer", movementBuffer);
+
 
         //indirect renderer from jknightdoeswork
         uint indexCountPerInstance = visualMesh.GetIndexCount(0);
@@ -269,11 +298,22 @@ public class AirSimulation : MonoBehaviour {
         RunAirSim();
     }
 
+    public void ChangeVisualType()
+    {
+        visualChoice++;
+        if(visualChoice >= visualMaterial.Length)
+        {
+            visualChoice = 0;
+        }
+    }
 
     void OnDestroy()
     {
         visualBuffer.Release();
         airBuffer.Release();
+        oldAirBuffer.Release();
+        movementBuffer.Release();
+        oldAirBuffer.Release();
         transferBuffer.Release();
         bufferWithArgs.Release();
         curPassBuffer.Release();

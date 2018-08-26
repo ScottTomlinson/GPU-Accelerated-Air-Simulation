@@ -3,8 +3,11 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel Balance
 #pragma kernel ChangeDelta
+#pragma kernel Movement
 
 RWStructuredBuffer<float> airBuffer;
+RWStructuredBuffer<float> oldAirBuffer;
+RWStructuredBuffer<float> movementBuffer;
 RWStructuredBuffer<float> transferabilityBuffer;
 RWStructuredBuffer<int> curDeltaBuffer;
 
@@ -15,6 +18,7 @@ int height;
 int depth;
 
 int curDeltaChoice;
+
 
 //3D to 1D
 int IndexNum(int _x, int _y, int _z)
@@ -41,7 +45,7 @@ void Balance(uint3 id : SV_DispatchThreadID)
 {
     int3 deltas[9] =
     {
-    int3(0, 0, 0),
+        int3(0, 0, 0),
     int3(1, 0, 0),
     int3(2, 0, 0),
     int3(0, 0, 1),
@@ -53,7 +57,7 @@ void Balance(uint3 id : SV_DispatchThreadID)
     };
     int3 deltasOne[9] =
     {
-    int3(1, 1, 1),
+        int3(1, 1, 1),
     int3(1, 1, 1),
     int3(-2, 1, 1),
     int3(1, 1, 1),
@@ -65,7 +69,7 @@ void Balance(uint3 id : SV_DispatchThreadID)
     };
     int3 deltasTwo[9] =
     {
-    int3(2, 2, 2),
+        int3(2, 2, 2),
     int3(-1, 2, 2),
     int3(-1, 2, 2),
     int3(2, 2, -1),
@@ -139,6 +143,11 @@ void Balance(uint3 id : SV_DispatchThreadID)
         IndexNum(node2X, node2Y, z21) //6th neighbor +z        
     };
     
+
+    oldAirBuffer[node0] = airBuffer[node0];
+    oldAirBuffer[node1] = airBuffer[node1];
+    oldAirBuffer[node2] = airBuffer[node2];
+
     //3 nodes balancing with neighbors
     [loop]
     for (int i = 0; i < 6; i++)
@@ -161,5 +170,48 @@ void Balance(uint3 id : SV_DispatchThreadID)
         airBuffer[node2] -= difference2;
         airBuffer[indexes2[i]] += difference2;
     }
+}
 
+[numthreads(1,1,1)]
+void Movement(uint3 id : SV_DispatchThreadID)
+{
+    int3 deltas[9] =
+    {
+        int3(0, 0, 0),
+    int3(1, 0, 0),
+    int3(2, 0, 0),
+    int3(0, 0, 1),
+    int3(1, 0, 1),
+    int3(2, 0, 1),
+    int3(0, 0, 2),
+    int3(1, 0, 2),
+    int3(2, 0, 2),
+    };
+    int3 deltasOne[9] =
+    {
+        int3(1, 1, 1),
+    int3(1, 1, 1),
+    int3(-2, 1, 1),
+    int3(1, 1, 1),
+    int3(1, 1, 1),
+    int3(-2, 1, 1),
+    int3(1, 1, -2),
+    int3(1, 1, -2),
+    int3(-2, 1, -2),
+    };
+    int3 deltasTwo[9] =
+    {
+        int3(2, 2, 2),
+    int3(-1, 2, 2),
+    int3(-1, 2, 2),
+    int3(2, 2, -1),
+    int3(-1, 2, -1),
+    int3(-1, 2, -1),
+    int3(2, 2, -1),
+    int3(-1, 2, -1),
+    int3(-1, 2, -1),
+    };
+
+    int node = IndexNum((id.x * 3) + deltas[curDeltaBuffer[0]].x, (id.y * 3) + deltas[curDeltaBuffer[0]].y, (id.z * 3) + deltas[curDeltaBuffer[0]].z);
+    movementBuffer[node] = airBuffer[node] - oldAirBuffer[node];
 }

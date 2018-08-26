@@ -44,6 +44,10 @@ public class AirTests : MonoBehaviour {
         {
             airSim.Unbuild();
         }
+        if (GUI.Button(new Rect(10, 290, 100, 30), "Change Vis"))
+        {
+            airSim.ChangeVisualType();
+        }
         userInput = GUI.TextField(new Rect(10, 10, 400, 30), testOutput, 100);
     }
 
