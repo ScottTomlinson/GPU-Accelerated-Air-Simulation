@@ -89,6 +89,7 @@ int depth;
 		
 		float4 col = tex2D(_Texture, float2(i.color.r,i.color.r)).rgba;
 		col.a = i.color.a;
+		col.a *= 10;
 		return col;
 	}
 

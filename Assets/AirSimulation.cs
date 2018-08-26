@@ -30,26 +30,15 @@ public class AirSimulation : MonoBehaviour {
     private float[] outputDeltaData;
     private float[] transferability;
     private int[] neighborCounts;
-
-    private int kernalOne = 0;
-    private int kernalTwo = 0;
-    private int kernalThree = 0;
-    private int kernalFour = 0;
-    private int kernalFive = 0;
-    private int kernalSix = 0;
-    private int kernalSeven = 0;
-    private int kernalEight = 0;
-    private int kernalNine = 0;
-
-    [Tooltip("Number of frames to skip between dispatches")]
-    public int getDataInterval = 10;
-    private int updateCounter = 0;
+   
+    private int kernalBalance = 0;
+    private int randomPass = 0;
 
     private float massCounter = 0;
     
     public bool runContinuously = false;
     public bool visualActive = false;
-
+    
     // Use this for pre-initialization
     void OnEnable ()
     {
@@ -59,24 +48,17 @@ public class AirSimulation : MonoBehaviour {
         sideLength = 3 * cubeSize;
         SetupAirSim();
     }
-    
-	// FixedUpdate is called once per physics frame
-	void FixedUpdate ()
+
+    private void Update()
     {
-        if (runContinuously)
-        {
-            //RunAirSim();
-        }
-        updateCounter++;
-        if(updateCounter > getDataInterval)
-        {
-            //move RunAirSim() to outside of  updateCounter if statement to run every frame, but only pull data every n frames
-            RunAirSim();
-            //airBuffer.GetData(outputData);
-            //inputData = outputData;
-            //visualBuffer.SetData(inputData);
-            updateCounter = 0;
-        }
+        RunAirSim();
+    }
+
+    // FixedUpdate is called once per physics frame
+    void FixedUpdate ()
+    {
+        randomPass = RNG.Ints(0,9);
+        airShader.SetInt("curDeltaChoice", randomPass);
     }
 
     void LateUpdate()
@@ -102,17 +84,9 @@ public class AirSimulation : MonoBehaviour {
         //make output array
         outputData = new float[numNodes];
 
-        //find the appropriate kernal
-        kernalOne = airShader.FindKernel("FirstPass");
-        kernalTwo = airShader.FindKernel("SecondPass");
-        kernalThree = airShader.FindKernel("ThirdPass");
-        kernalFour = airShader.FindKernel("FourthPass");
-        kernalFive = airShader.FindKernel("FifthPass");
-        kernalSix = airShader.FindKernel("SixthPass");
-        kernalSeven = airShader.FindKernel("SeventhPass");
-        kernalEight = airShader.FindKernel("EighthPass");
-        kernalNine = airShader.FindKernel("NinthPass");
+        kernalBalance = airShader.FindKernel("Balance");
 
+        
         //make buffers and set inputs
         airBuffer = new ComputeBuffer(numNodes, sizeof(float));
         airBuffer.SetData(inputData);
@@ -136,63 +110,15 @@ public class AirSimulation : MonoBehaviour {
         visualBounds.extents = _extents;
 
         //set the RWStructuredBuffer in the compute shader to match up with our airBuffer here
-        airShader.SetBuffer(kernalOne, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalTwo, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalThree, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalFour, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalFive, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalSix, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalSeven, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalEight, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalNine, "airBuffer", airBuffer);
-        airShader.SetBuffer(kernalOne, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalTwo, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalThree, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalFour, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalFive, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalSix, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalSeven, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalEight, "transferabilityBuffer", transferBuffer);
-        airShader.SetBuffer(kernalNine, "transferabilityBuffer", transferBuffer);
+        airShader.SetBuffer(kernalBalance, "airBuffer", airBuffer);
+        airShader.SetBuffer(kernalBalance, "transferabilityBuffer", transferBuffer);
 
         //command buffer
         commandBuffer = new CommandBuffer();
 
-        commandBuffer.BeginSample("First Pass");
-        commandBuffer.DispatchCompute(airShader, kernalOne, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("First Pass");
-
-        commandBuffer.BeginSample("Second Pass");
-        commandBuffer.DispatchCompute(airShader, kernalTwo, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Second Pass");
-
-        commandBuffer.BeginSample("Third Pass");
-        commandBuffer.DispatchCompute(airShader, kernalThree, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Third Pass");
-
-        commandBuffer.BeginSample("Fourth Pass");
-        commandBuffer.DispatchCompute(airShader, kernalFour, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Fourth Pass");
-
-        commandBuffer.BeginSample("Fifth Pass");
-        commandBuffer.DispatchCompute(airShader, kernalFive, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Fifth Pass");
-
-        commandBuffer.BeginSample("Sixth Pass");
-        commandBuffer.DispatchCompute(airShader, kernalSix, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Sixth Pass");
-
-        commandBuffer.BeginSample("Seventh Pass");
-        commandBuffer.DispatchCompute(airShader, kernalSeven, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Seventh Pass");
-
-        commandBuffer.BeginSample("Eighth Pass");
-        commandBuffer.DispatchCompute(airShader, kernalEight, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Eighth Pass");
-
-        commandBuffer.BeginSample("Ninth Pass");
-        commandBuffer.DispatchCompute(airShader, kernalNine, cubeSize, cubeSize, cubeSize);
-        commandBuffer.EndSample("Ninth Pass");
+        commandBuffer.BeginSample("Balance");
+        commandBuffer.DispatchCompute(airShader, kernalBalance, cubeSize, cubeSize, cubeSize);
+        commandBuffer.EndSample("Balance");
 
         //visual stuff
         visualBuffer = new ComputeBuffer(numNodes, sizeof(float));
